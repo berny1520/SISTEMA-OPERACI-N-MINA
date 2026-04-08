@@ -128,7 +128,7 @@ th{background:#f8fafc;color:#334155;position:sticky;top:0}
         <div class="row3">
           <div><label>Horas programadas</label><input id="f_hp" type="number" step="0.1" value="12"></div>
           <div><label>Horas efectivas</label><input id="f_he" type="number" step="0.1" value="0"></div>
-          <div><label>Disponibilidad % (manual opc.)</label><input id="f_disp" type="number" step="0.1" placeholder="auto"></div>
+          <div><label>Disponibilidad % (automático)</label><input id="f_disp" type="number" step="0.1" placeholder="auto" readonly style="background:#f1f5f9;color:#475569;font-weight:700"></div>
         </div>
         <div class="row2">
           <div><label>Pérdida por agua (h)</label><input id="f_agua" type="number" step="0.1" value="0"></div>
@@ -270,9 +270,19 @@ function todayISO(){
   const day = String(d.getDate()).padStart(2,'0');
   return `${d.getFullYear()}-${m}-${day}`;
 }
+
+function updateDisponibilidadAuto(){
+  const hp = Number(document.getElementById('f_hp').value || 0);
+  const he = Number(document.getElementById('f_he').value || 0);
+  const disp = hp > 0 ? +(he / hp * 100).toFixed(1) : 0;
+  document.getElementById('f_disp').value = disp;
+}
 document.getElementById('f_fecha').value = todayISO();
 document.getElementById('r_desde').value = '';
 document.getElementById('r_hasta').value = '';
+document.getElementById('f_hp').addEventListener('input', updateDisponibilidadAuto);
+document.getElementById('f_he').addEventListener('input', updateDisponibilidadAuto);
+updateDisponibilidadAuto();
 
 function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -292,7 +302,6 @@ function badgeForState(state){
 function getFormData(){
   const hp = Number(document.getElementById('f_hp').value || 0);
   const he = Number(document.getElementById('f_he').value || 0);
-  const dispManual = document.getElementById('f_disp').value;
   return {
     id: Date.now(),
     fecha: document.getElementById('f_fecha').value,
@@ -305,7 +314,7 @@ function getFormData(){
     estado: document.getElementById('f_estado').value,
     hp,
     he,
-    disp: dispManual ? Number(dispManual) : (hp>0 ? +(he/hp*100).toFixed(1) : 0),
+    disp: (hp>0 ? +(he/hp*100).toFixed(1) : 0),
     agua: Number(document.getElementById('f_agua').value || 0),
     energia: Number(document.getElementById('f_energia').value || 0),
     mant: Number(document.getElementById('f_mant').value || 0),
@@ -491,7 +500,7 @@ function resetForm(){
   document.getElementById('f_estado').value = 'Operativo';
   document.getElementById('f_hp').value = 12;
   document.getElementById('f_he').value = 0;
-  document.getElementById('f_disp').value = '';
+  updateDisponibilidadAuto();
   document.getElementById('f_agua').value = 0;
   document.getElementById('f_energia').value = 0;
   document.getElementById('f_mant').value = 0;
@@ -526,7 +535,7 @@ function editRecord(id){
   document.getElementById('f_estado').value = r.estado || 'Operativo';
   document.getElementById('f_hp').value = r.hp ?? 0;
   document.getElementById('f_he').value = r.he ?? 0;
-  document.getElementById('f_disp').value = r.disp ?? '';
+  updateDisponibilidadAuto();
   document.getElementById('f_agua').value = r.agua ?? 0;
   document.getElementById('f_energia').value = r.energia ?? 0;
   document.getElementById('f_mant').value = r.mant ?? 0;
