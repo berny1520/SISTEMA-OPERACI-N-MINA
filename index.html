@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Sistema PRO Operación Minera Offline</title>
+<style>
+:root{
+  --bg:#f3f6fa; --panel:#ffffff; --ink:#152033; --muted:#64748b;
+  --blue:#0f4c81; --blue2:#1e6ea9; --red:#d24b4b; --green:#137b5c; --amber:#b7791f;
+  --line:#d9e2ec; --dark:#0f172a; --soft:#eef4fb;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:var(--bg)}
+header{background:linear-gradient(120deg,var(--dark),var(--blue));color:#fff;padding:18px 24px}
+header h1{margin:0;font-size:28px}
+header p{margin:6px 0 0;color:#dbeafe}
+.layout{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 86px)}
+aside{background:#111827;color:#fff;padding:18px 16px 24px;overflow:auto}
+aside h2{font-size:16px;margin:4px 0 10px}
+aside .hint{font-size:12px;line-height:1.45;color:#cbd5e1;margin-bottom:14px}
+aside details{border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-bottom:10px;background:#172033}
+aside summary{cursor:pointer;padding:11px 12px;font-weight:700}
+aside .group{padding:0 12px 12px;display:grid;gap:9px}
+label{font-size:12px;font-weight:700;color:#c8d4e3}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid #ced7e0;border-radius:8px;font:inherit;background:#fff}
+aside input,aside select,aside textarea{border-color:#314056}
+textarea{min-height:68px;resize:vertical}
+button{border:0;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.btn-primary{background:#2563eb;color:#fff}
+.btn-dark{background:#334155;color:#fff}
+.btn-light{background:#fff;color:#111}
+.btn-green{background:#0f766e;color:#fff}
+.btn-red{background:#b91c1c;color:#fff}
+main{padding:20px;overflow:auto}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{padding:10px 14px;border-radius:999px;background:#e2e8f0;color:#0f172a;font-weight:700;cursor:pointer}
+.tab.active{background:var(--blue);color:#fff}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+.hidden{display:none !important}
+.cards{display:grid;grid-template-columns:repeat(5,minmax(160px,1fr));gap:12px;margin-bottom:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
+.card .k{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase}
+.card .v{font-size:30px;font-weight:800;margin-top:6px}
+.card small{color:var(--muted)}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px 10px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:13px;vertical-align:top}
+th{background:#f8fafc;color:#334155;position:sticky;top:0}
+.badge{display:inline-block;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700}
+.badge.ok{background:#dcfce7;color:#166534}
+.badge.warn{background:#fef3c7;color:#92400e}
+.badge.stop{background:#fee2e2;color:#991b1b}
+.split{display:grid;grid-template-columns:1.4fr .9fr;gap:14px}
+.bar-list{display:grid;gap:10px}
+.bar-item{display:grid;grid-template-columns:160px 1fr 58px;gap:10px;align-items:center}
+.bar-track{height:14px;background:#e5edf6;border-radius:999px;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--blue2),#60a5fa)}
+.report-box{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;max-width:960px}
+.report-box h2{margin:0 0 10px}
+.report-box h3{margin:18px 0 8px;color:var(--blue)}
+.report-box p,.report-box li{line-height:1.5}
+.report-box ul{margin:8px 0 0 18px}
+.notice{padding:12px 14px;border-left:6px solid var(--amber);background:#fff7ed;border-radius:10px;color:#7c2d12;font-weight:700;margin:12px 0}
+.notice.red{border-left-color:var(--red);background:#fef2f2;color:#7f1d1d}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.mono{font-family:Consolas,monospace}
+.footer-note{font-size:12px;color:var(--muted);margin-top:10px}
+@media print{
+  body{background:#fff}
+  header,aside,.tabs,.toolbar,#filtersPanel,.cards,.chartPanel{display:none !important}
+  .layout{display:block}
+  main{padding:0}
+  .panel{border:0;box-shadow:none;padding:0}
+  #reportTab{display:block !important}
+  .report-box{border:0;padding:0;max-width:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sistema PRO Operación Minera</h1>
+  <p>Boltec · Jumbo · Scoop | captura diaria, historial, KPI y reporte automático offline</p>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>Captura diaria</h2>
+    <div class="hint">Registra turno, producción, pérdidas, checklist y comentarios del operador. Todo queda guardado en el navegador y también se puede exportar a JSON.</div>
+
+    <div class="row2" style="margin-bottom:10px">
+      <button class="btn-primary" onclick="addRecord()">Guardar registro</button>
+      <button class="btn-dark" onclick="loadDemo()">Cargar demo</button>
+      <button class="btn-light" onclick="exportJSON()">Exportar JSON</button>
+      <label class="btn-light" style="text-align:center;padding-top:11px" for="jsonFile">Importar JSON</label>
+      <input id="jsonFile" type="file" accept=".json" style="display:none">
+      <button class="btn-green" onclick="window.print()">Imprimir reporte</button>
+      <button class="btn-red" onclick="clearAll()">Borrar todo</button>
+    </div>
+
+    <details open>
+      <summary>1. Turno y equipo</summary>
+      <div class="group">
+        <div class="row2">
+          <div><label>Fecha</label><input id="f_fecha" type="date"></div>
+          <div><label>Turno</label><select id="f_turno"><option>A</option><option>B</option><option>Noche</option><option>Día</option></select></div>
+        </div>
+        <div class="row2">
+          <div><label>Tipo equipo</label><select id="f_tipo"><option>Boltec</option><option>Jumbo</option><option>Scoop</option><option>Otro</option></select></div>
+          <div><label>Equipo</label><input id="f_equipo" value="Boltec 361"></div>
+        </div>
+        <div class="row2">
+          <div><label>Operador</label><input id="f_operador" value="Pablo Orellana"></div>
+          <div><label>Supervisor / capataz</label><input id="f_supervisor" value=""></div>
+        </div>
+        <div><label>Sector / frente</label><input id="f_sector" value="Central HW 2N Tte 7"></div>
+        <div><label>Estado equipo</label><select id="f_estado"><option>Operativo</option><option>Operativo condicionado</option><option>Detenido</option><option>Mantenimiento</option></select></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>2. Producción y horas</summary>
+      <div class="group">
+        <div class="row3">
+          <div><label>Horas programadas</label><input id="f_hp" type="number" step="0.1" value="12"></div>
+          <div><label>Horas efectivas</label><input id="f_he" type="number" step="0.1" value="0"></div>
+          <div><label>Disponibilidad % (manual opc.)</label><input id="f_disp" type="number" step="0.1" placeholder="auto"></div>
+        </div>
+        <div class="row3">
+          <div><label>Pérdida por agua (h)</label><input id="f_agua" type="number" step="0.1" value="0"></div>
+          <div><label>Pérdida por mantención (h)</label><input id="f_mant" type="number" step="0.1" value="0"></div>
+          <div><label>Otras pérdidas (h)</label><input id="f_otras" type="number" step="0.1" value="0"></div>
+        </div>
+        <div class="row3">
+          <div><label>Pernos / tiros</label><input id="f_tiros" type="number" step="1" value="0"></div>
+          <div><label>Largo / avance (m)</label><input id="f_avance" type="number" step="0.1" value="0"></div>
+          <div><label>Malla (m²)</label><input id="f_malla" type="number" step="0.1" value="0"></div>
+        </div>
+        <div class="row3">
+          <div><label>Motor / horómetro</label><input id="f_motor" value=""></div>
+          <div><label>Percusión</label><input id="f_percusion" value=""></div>
+          <div><label>Motor eléctrico</label><input id="f_melec" value=""></div>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>3. Checklist y condición</summary>
+      <div class="group">
+        <div><label>Resumen checklist</label><textarea id="f_checklist">Regular tensiones. Cambiar perno tope centralizador móvil.</textarea></div>
+        <div><label>Condición del equipo al cierre</label><textarea id="f_cierre">Equipo operativo condicionado. Pendiente completar calibración general.</textarea></div>
+        <div><label>Agua en el sector</label><select id="f_flagAgua"><option value="Sí">Sí</option><option value="No">No</option></select></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>4. Comentarios y acciones</summary>
+      <div class="group">
+        <div><label>Comentario operador / turno</label><textarea id="f_obs">El equipo no se ha ocupado con normalidad por problemas de agua en el sector.</textarea></div>
+        <div><label>Acciones ejecutadas hoy (una por línea)</label><textarea id="f_acciones">Se calibra giro de brazo. Quedando ok. Velocidad. Falta calibrar equipo.
+Se ajustan clan de piolas COP 1028 y COP RR14.
+Se invierte flexible COP 1028 rotación.
+Se revisan rodillos de impulso sonda quedando ok.
+Se chequea vibrador silo. Responde a modo manual.
+Se encuentran flexibles sueltos COP 1028 6 x 250 mm.
+Se aprieta cabezal COP 1028.
+Rellenar refrigerante.
+Rellenar hidráulico.
+Rellenar almo.
+Se limpia transductor B133, entregando presión. Falta probar en perforación.
+Se ajusta centro de perforación, con respecto a la sonda.
+Rellenar depósito de grasa.</textarea></div>
+        <div><label>Conclusión corta del turno</label><textarea id="f_conclusion">Equipo en ajuste. Sin operación productiva normal por interferencia de agua en el sector.</textarea></div>
+      </div>
+    </details>
+  </aside>
+
+  <main>
+    <div class="tabs">
+      <div class="tab active" data-tab="dashboardTab" onclick="showTab('dashboardTab',this)">Dashboard</div>
+      <div class="tab" data-tab="recordsTab" onclick="showTab('recordsTab',this)">Historial</div>
+      <div class="tab" data-tab="reportTab" onclick="showTab('reportTab',this)">Informe automático</div>
+      <div class="tab" data-tab="helpTab" onclick="showTab('helpTab',this)">Ayuda</div>
+    </div>
+
+    <section id="dashboardTab" class="panel">
+      <div class="cards">
+        <div class="card"><div class="k">Registros</div><div class="v" id="k_registros">0</div><small>turnos cargados</small></div>
+        <div class="card"><div class="k">Horas programadas</div><div class="v" id="k_hp">0.0</div><small>h acumuladas</small></div>
+        <div class="card"><div class="k">Horas efectivas</div><div class="v" id="k_he">0.0</div><small>h productivas</small></div>
+        <div class="card"><div class="k">Utilización</div><div class="v" id="k_util">0%</div><small>he / hp</small></div>
+        <div class="card"><div class="k">Pérdida por agua</div><div class="v" id="k_agua">0.0</div><small>h y alertas</small></div>
+      </div>
+
+      <div class="split">
+        <div class="panel" id="chartPanel">
+          <h3 style="margin-top:0">Pérdidas por causa</h3>
+          <div class="bar-list" id="lossBars"></div>
+          <div class="footer-note">Tip: si el equipo no trabajó por agua, registra las horas en “Pérdida por agua” y deja constancia en observaciones. El informe lo destacará automáticamente.</div>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0">Última condición registrada</h3>
+          <div id="latestCard" class="footer-note">Sin datos.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="recordsTab" class="panel hidden">
+      <div id="filtersPanel" class="toolbar">
+        <input id="filterText" placeholder="Filtrar por equipo, operador, sector..." oninput="renderRecords()" style="max-width:320px">
+        <select id="filterTipo" onchange="renderRecords()" style="max-width:180px"><option value="">Todos los equipos</option><option>Boltec</option><option>Jumbo</option><option>Scoop</option><option>Otro</option></select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Turno</th><th>Equipo</th><th>Operador</th><th>Sector</th><th>Estado</th><th>HP</th><th>HE</th><th>Agua</th><th>Pernos/Tiros</th><th>Observaciones</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="reportTab" class="panel hidden">
+      <div class="toolbar">
+        <input id="r_equipo" placeholder="Equipo (vacío = todos)" style="max-width:220px">
+        <input id="r_desde" type="date">
+        <input id="r_hasta" type="date">
+        <button class="btn-primary" onclick="buildReport()">Actualizar informe</button>
+      </div>
+      <div id="reportBox" class="report-box"></div>
+    </section>
+
+    <section id="helpTab" class="panel hidden">
+      <h2 style="margin-top:0">Cómo usar el sistema</h2>
+      <ol>
+        <li>Completa el formulario del costado y guarda un registro por turno o por día.</li>
+        <li>En <strong>Historial</strong> revisa y elimina registros si es necesario.</li>
+        <li>En <strong>Informe automático</strong> el sistema consolida comentarios del operador, acciones ejecutadas, pérdidas por agua y conclusión operacional.</li>
+        <li>Usa <strong>Exportar JSON</strong> para respaldo y traspaso entre computadores o celulares.</li>
+        <li>Usa el archivo Excel del paquete para el control KPI de largo plazo.</li>
+      </ol>
+      <div class="notice">Este sistema queda preparado para Boltec, Jumbo y Scoop. Puedes renombrar equipos, operadores y sectores sin tocar el código.</div>
+      <p class="footer-note">El informe resalta automáticamente cuando detecta agua en el sector o horas perdidas por agua.</p>
+    </section>
+  </main>
+</div>
+
+<script>
+const STORAGE_KEY = 'sistema_mina_pro_registros_v1';
+let records = [];
+
+function todayISO(){
+  const d = new Date();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+document.getElementById('f_fecha').value = todayISO();
+document.getElementById('r_desde').value = '';
+document.getElementById('r_hasta').value = '';
+
+function showTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  ['dashboardTab','recordsTab','reportTab','helpTab'].forEach(x=>document.getElementById(x).classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  if(id==='reportTab') buildReport();
+}
+
+function badgeForState(state){
+  if((state||'').toLowerCase().includes('detenido')) return '<span class="badge stop">Detenido</span>';
+  if((state||'').toLowerCase().includes('condicion')) return '<span class="badge warn">Condicionado</span>';
+  if((state||'').toLowerCase().includes('mant')) return '<span class="badge warn">Mantención</span>';
+  return '<span class="badge ok">Operativo</span>';
+}
+
+function getFormData(){
+  const hp = Number(document.getElementById('f_hp').value || 0);
+  const he = Number(document.getElementById('f_he').value || 0);
+  const dispManual = document.getElementById('f_disp').value;
+  return {
+    id: Date.now(),
+    fecha: document.getElementById('f_fecha').value,
+    turno: document.getElementById('f_turno').value,
+    tipo: document.getElementById('f_tipo').value,
+    equipo: document.getElementById('f_equipo').value.trim(),
+    operador: document.getElementById('f_operador').value.trim(),
+    supervisor: document.getElementById('f_supervisor').value.trim(),
+    sector: document.getElementById('f_sector').value.trim(),
+    estado: document.getElementById('f_estado').value,
+    hp,
+    he,
+    disp: dispManual ? Number(dispManual) : (hp>0 ? +(he/hp*100).toFixed(1) : 0),
+    agua: Number(document.getElementById('f_agua').value || 0),
+    mant: Number(document.getElementById('f_mant').value || 0),
+    otras: Number(document.getElementById('f_otras').value || 0),
+    tiros: Number(document.getElementById('f_tiros').value || 0),
+    avance: Number(document.getElementById('f_avance').value || 0),
+    malla: Number(document.getElementById('f_malla').value || 0),
+    motor: document.getElementById('f_motor').value.trim(),
+    percusion: document.getElementById('f_percusion').value.trim(),
+    motorElec: document.getElementById('f_melec').value.trim(),
+    checklist: document.getElementById('f_checklist').value.trim(),
+    cierre: document.getElementById('f_cierre').value.trim(),
+    flagAgua: document.getElementById('f_flagAgua').value,
+    observacion: document.getElementById('f_obs').value.trim(),
+    acciones: document.getElementById('f_acciones').value.trim(),
+    conclusion: document.getElementById('f_conclusion').value.trim()
+  };
+}
+
+function addRecord(){
+  const rec = getFormData();
+  if(!rec.fecha || !rec.equipo || !rec.operador){
+    alert('Completa fecha, equipo y operador.');
+    return;
+  }
+  records.unshift(rec);
+  persist();
+  renderAll();
+  showTab('recordsTab', document.querySelector('[data-tab="recordsTab"]'));
+}
+
+function persist(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+function loadStorage(){
+  try{
+    records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  }catch(e){ records = []; }
+}
+
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(records,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sistema_mina_pro_registros.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('jsonFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const txt = await file.text();
+  try{
+    records = JSON.parse(txt);
+    persist();
+    renderAll();
+  }catch(err){
+    alert('JSON inválido.');
+  }
+});
+
+function clearAll(){
+  if(!confirm('Se eliminarán todos los registros guardados en este navegador.')) return;
+  records = [];
+  persist();
+  renderAll();
+}
+
+function formatDate(s){
+  if(!s) return '';
+  const [y,m,d] = s.split('-');
+  return `${d}/${m}/${y}`;
+}
+function textToList(text){
+  return (text||'').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+}
+function htmlEscape(str){
+  return String(str||'').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+}
+
+function renderDashboard(){
+  const hp = records.reduce((a,b)=>a+(Number(b.hp)||0),0);
+  const he = records.reduce((a,b)=>a+(Number(b.he)||0),0);
+  const agua = records.reduce((a,b)=>a+(Number(b.agua)||0),0);
+  const mant = records.reduce((a,b)=>a+(Number(b.mant)||0),0);
+  const otras = records.reduce((a,b)=>a+(Number(b.otras)||0),0);
+  document.getElementById('k_registros').textContent = records.length;
+  document.getElementById('k_hp').textContent = hp.toFixed(1);
+  document.getElementById('k_he').textContent = he.toFixed(1);
+  document.getElementById('k_util').textContent = (hp>0 ? (he/hp*100).toFixed(1) : '0.0') + '%';
+  document.getElementById('k_agua').textContent = agua.toFixed(1);
+
+  const max = Math.max(agua,mant,otras,1);
+  const bars = [
+    ['Agua',agua,'#3b82f6'],
+    ['Mantención',mant,'#ef4444'],
+    ['Otras',otras,'#f59e0b']
+  ];
+  document.getElementById('lossBars').innerHTML = bars.map(([label,val,color])=>`
+    <div class="bar-item">
+      <div>${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(val/max*100).toFixed(1)}%;background:${color}"></div></div>
+      <div>${val.toFixed(1)} h</div>
+    </div>`).join('');
+
+  if(records.length){
+    const r = records[0];
+    document.getElementById('latestCard').innerHTML = `
+      <div><strong>${htmlEscape(r.equipo)}</strong> · ${htmlEscape(r.tipo)}</div>
+      <div style="margin-top:6px">${formatDate(r.fecha)} · Turno ${htmlEscape(r.turno)} · ${badgeForState(r.estado)}</div>
+      <div style="margin-top:10px"><strong>Sector:</strong> ${htmlEscape(r.sector)}</div>
+      <div style="margin-top:6px"><strong>Conclusión:</strong> ${htmlEscape(r.conclusion)}</div>
+      <div style="margin-top:6px"><strong>Agua sector:</strong> ${htmlEscape(r.flagAgua)}</div>
+    `;
+  } else {
+    document.getElementById('latestCard').textContent = 'Sin datos.';
+  }
+}
+
+function renderRecords(){
+  const txt = (document.getElementById('filterText').value || '').toLowerCase();
+  const tipo = document.getElementById('filterTipo').value;
+  const rows = records.filter(r => {
+    const blob = `${r.fecha} ${r.turno} ${r.tipo} ${r.equipo} ${r.operador} ${r.sector} ${r.observacion}`.toLowerCase();
+    return (!txt || blob.includes(txt)) && (!tipo || r.tipo===tipo);
+  });
+  document.getElementById('recordsBody').innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td>${formatDate(r.fecha)}</td>
+      <td>${htmlEscape(r.turno)}</td>
+      <td><strong>${htmlEscape(r.equipo)}</strong><br><span class="mono">${htmlEscape(r.tipo)}</span></td>
+      <td>${htmlEscape(r.operador)}</td>
+      <td>${htmlEscape(r.sector)}</td>
+      <td>${badgeForState(r.estado)}</td>
+      <td>${Number(r.hp).toFixed(1)}</td>
+      <td>${Number(r.he).toFixed(1)}</td>
+      <td>${Number(r.agua).toFixed(1)}</td>
+      <td>${Number(r.tiros).toFixed(0)} / ${Number(r.avance).toFixed(1)} m</td>
+      <td>${htmlEscape(r.observacion)}</td>
+      <td><button class="btn-light" onclick="deleteRecord(${r.id})">Eliminar</button></td>
+    </tr>`).join('') : '<tr><td colspan="12" style="color:#64748b">Sin registros.</td></tr>';
+}
+
+function deleteRecord(id){
+  if(!confirm('¿Eliminar registro?')) return;
+  records = records.filter(r => r.id !== id);
+  persist();
+  renderAll();
+}
+
+function buildReport(){
+  const equipo = (document.getElementById('r_equipo').value || '').trim().toLowerCase();
+  const desde = document.getElementById('r_desde').value;
+  const hasta = document.getElementById('r_hasta').value;
+  let rows = records.slice().sort((a,b)=> (a.fecha===b.fecha? (a.turno>b.turno?-1:1) : (a.fecha>b.fecha?-1:1)));
+  rows = rows.filter(r => (!equipo || `${r.equipo} ${r.tipo}`.toLowerCase().includes(equipo)) && (!desde || r.fecha>=desde) && (!hasta || r.fecha<=hasta));
+
+  if(!rows.length){
+    document.getElementById('reportBox').innerHTML = '<h2>Informe automático</h2><p>No hay registros para el filtro seleccionado.</p>';
+    return;
+  }
+
+  const hp = rows.reduce((a,b)=>a+(Number(b.hp)||0),0);
+  const he = rows.reduce((a,b)=>a+(Number(b.he)||0),0);
+  const agua = rows.reduce((a,b)=>a+(Number(b.agua)||0),0);
+  const mant = rows.reduce((a,b)=>a+(Number(b.mant)||0),0);
+  const otras = rows.reduce((a,b)=>a+(Number(b.otras)||0),0);
+  const tiros = rows.reduce((a,b)=>a+(Number(b.tiros)||0),0);
+  const avance = rows.reduce((a,b)=>a+(Number(b.avance)||0),0);
+  const malla = rows.reduce((a,b)=>a+(Number(b.malla)||0),0);
+  const equipSet = [...new Set(rows.map(r => r.equipo))];
+  const latest = rows[0];
+  const hasWater = rows.some(r => String(r.flagAgua).toLowerCase()==='sí' || Number(r.agua)>0 || /agua/i.test(r.observacion) || /agua/i.test(r.conclusion));
+
+  const grouped = {};
+  rows.forEach(r => {
+    const key = `${r.fecha} · Turno ${r.turno}`;
+    if(!grouped[key]) grouped[key] = [];
+    grouped[key].push(r);
+  });
+
+  const blockDays = Object.entries(grouped).map(([key,items])=>{
+    return `<h3>${htmlEscape(key)}</h3>
+      ${items.map(r=>`
+        <p><strong>${htmlEscape(r.equipo)}</strong> en <strong>${htmlEscape(r.sector)}</strong> (${htmlEscape(r.estado)}). Horas efectivas: ${Number(r.he).toFixed(1)} h de ${Number(r.hp).toFixed(1)} h programadas. Pérdida por agua: ${Number(r.agua).toFixed(1)} h. Pérdida por mantención: ${Number(r.mant).toFixed(1)} h.</p>
+        <p><strong>Comentario operador:</strong> ${htmlEscape(r.observacion)}</p>
+        <p><strong>Checklist/condición:</strong> ${htmlEscape(r.checklist)} ${r.cierre ? ' | ' + htmlEscape(r.cierre) : ''}</p>
+        <p><strong>Acciones ejecutadas:</strong></p>
+        <ul>${textToList(r.acciones).map(x=>`<li>${htmlEscape(x)}</li>`).join('') || '<li>Sin acciones registradas.</li>'}</ul>
+      `).join('')}`;
+  }).join('');
+
+  const reportHTML = `
+    <h2>Informe automático de operación y condición de equipos</h2>
+    <p><strong>Equipos considerados:</strong> ${equipSet.map(htmlEscape).join(', ')}<br>
+    <strong>Fecha corte:</strong> ${formatDate(rows[rows.length-1].fecha)} a ${formatDate(rows[0].fecha)}</p>
+
+    ${hasWater ? `<div class="notice red">Se debe destacar que el equipo no se ha ocupado con normalidad por problemas de agua en el sector. Esta condición afecta la utilización real y debe mantenerse visible en el informe hasta normalizar el entorno de trabajo.</div>` : ''}
+
+    <h3>1. Resumen ejecutivo</h3>
+    <p>En el período revisado se registraron <strong>${rows.length}</strong> reportes operacionales. La utilización acumulada fue de <strong>${hp>0?(he/hp*100).toFixed(1):'0.0'}%</strong>, con <strong>${he.toFixed(1)} h</strong> efectivas sobre <strong>${hp.toFixed(1)} h</strong> programadas. Las pérdidas principales corresponden a <strong>${agua.toFixed(1)} h por agua</strong>, <strong>${mant.toFixed(1)} h por mantención</strong> y <strong>${otras.toFixed(1)} h por otras causas</strong>.</p>
+
+    <h3>2. Producción y avance</h3>
+    <ul>
+      <li>Pernos / tiros ejecutados: <strong>${tiros.toFixed(0)}</strong></li>
+      <li>Largo / avance acumulado: <strong>${avance.toFixed(1)} m</strong></li>
+      <li>Malla acumulada: <strong>${malla.toFixed(1)} m²</strong></li>
+    </ul>
+
+    <h3>3. Estado actual del equipo</h3>
+    <p>Último registro: <strong>${htmlEscape(latest.equipo)}</strong>, ${formatDate(latest.fecha)} turno ${htmlEscape(latest.turno)}, sector <strong>${htmlEscape(latest.sector)}</strong>. Estado declarado: <strong>${htmlEscape(latest.estado)}</strong>. Conclusión del turno: <strong>${htmlEscape(latest.conclusion)}</strong></p>
+
+    <h3>4. Comentarios del operador y actividades ejecutadas</h3>
+    ${blockDays}
+
+    <h3>5. Lectura operacional para el informe</h3>
+    <ul>
+      <li>El sistema integra lo comentado por el operador en sus reportes por día, turno y fecha.</li>
+      <li>También considera las acciones ejecutadas hoy para ajuste, revisión y mantención del equipo.</li>
+      <li>Cuando existe agua en el sector, el informe la prioriza como restricción operacional crítica.</li>
+      <li>Si el equipo continúa en ajuste o calibración, debe indicarse como <strong>operativo condicionado</strong> o <strong>sin operación productiva normal</strong>.</li>
+    </ul>
+
+    <h3>6. Conclusión sugerida</h3>
+    <p>${hasWater
+      ? 'El equipo presenta avances de ajuste y revisión mecánica; sin embargo, no ha sido ocupado de manera normal debido a problemas de agua en el sector. Mientras esta condición se mantenga, la utilización y el rendimiento productivo seguirán restringidos, por lo que el equipo debe informarse como operativo condicionado y sujeto a nueva prueba una vez normalizado el entorno.'
+      : 'El equipo se encuentra operativo según los registros disponibles. Se recomienda continuar controlando checklist, pérdidas y comentarios del operador para sostener la confiabilidad del reporte.'}</p>
+  `;
+  document.getElementById('reportBox').innerHTML = reportHTML;
+}
+
+function renderAll(){
+  renderDashboard();
+  renderRecords();
+  buildReport();
+}
+
+function loadDemo(){
+  records = [
+    {
+      id: 2203261,
+      fecha: '2026-03-22',
+      turno: 'B',
+      tipo: 'Boltec',
+      equipo: 'Boltec 361',
+      operador: 'Pablo Orellana',
+      supervisor: '',
+      sector: 'Central HW 2N Tte 7',
+      estado: 'Operativo condicionado',
+      hp: 12, he: 4, disp: 33.3, agua: 0, mant: 8, otras: 0,
+      tiros: 4, avance: 3.5, malla: 0,
+      motor: '507', percusion: '', motorElec: '',
+      checklist: 'Regular tensiones. Cambiar perno tope centralizador móvil.',
+      cierre: 'Equipo operativo y lavado al cierre del turno.',
+      flagAgua: 'No',
+      observacion: 'Se registró prueba inicial e instalación de 4 pernos en Central HW 2N Tte 7.',
+      acciones: 'Revisión general del equipo.\nControl de tensiones.\nPendiente cambio de perno tope centralizador móvil.',
+      conclusion: 'Equipo en fase de ajuste operacional.'
+    },
+    {
+      id: 2503261,
+      fecha: todayISO(),
+      turno: 'A',
+      tipo: 'Boltec',
+      equipo: 'Boltec 361',
+      operador: 'Pablo Orellana',
+      supervisor: '',
+      sector: 'Teniente 7',
+      estado: 'Operativo condicionado',
+      hp: 12, he: 0, disp: 0, agua: 12, mant: 0, otras: 0,
+      tiros: 0, avance: 0, malla: 0,
+      motor: '511', percusion: '1:11', motorElec: '8:18',
+      checklist: 'Pendiente completar calibración general del equipo.',
+      cierre: 'Equipo sin uso productivo normal por problema de agua en el sector.',
+      flagAgua: 'Sí',
+      observacion: 'El equipo no se ha ocupado por problemas de agua en el sector.',
+      acciones: 'Se calibra giro de brazo. Quedando ok. Velocidad. Falta calibrar equipo.\nSe ajustan clan de piolas COP 1028 y COP RR14.\nSe invierte flexible COP 1028 rotación.\nSe revisan rodillos de impulso sonda quedando ok.\nSe chequea vibrador silo. Responde a modo manual.\nSe encuentran flexibles sueltos COP 1028 6 x 250 mm.\nSe aprieta cabezal COP 1028.\nRellenar refrigerante.\nRellenar hidráulico.\nRellenar almo.\nSe limpia transductor B133, entregando presión. Falta probar en perforación.\nSe ajusta centro de perforación, con respecto a la sonda.\nRellenar depósito de grasa.',
+      conclusion: 'Equipo en ajuste. Sin operación productiva normal por interferencia de agua en el sector.'
+    }
+  ];
+  persist();
+  renderAll();
+}
+
+loadStorage();
+if(!records.length) loadDemo(); else renderAll();
+</script>
+</body>
+</html>
