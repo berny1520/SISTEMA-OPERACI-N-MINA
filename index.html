@@ -97,6 +97,8 @@ th{background:#f8fafc;color:#334155;position:sticky;top:0}
       <label class="btn-light" style="text-align:center;padding-top:11px" for="jsonFile">Importar JSON</label>
       <input id="jsonFile" type="file" accept=".json" style="display:none">
       <button class="btn-green" onclick="window.print()">Imprimir reporte</button>
+      <button class="btn-dark" onclick="resetForm()">Limpiar / cancelar edición</button>
+      <button class="btn-light" onclick="exportResumenExcel()">Exportar Excel resumen</button>
       <button class="btn-red" onclick="clearAll()">Borrar todo</button>
     </div>
 
@@ -128,8 +130,11 @@ th{background:#f8fafc;color:#334155;position:sticky;top:0}
           <div><label>Horas efectivas</label><input id="f_he" type="number" step="0.1" value="0"></div>
           <div><label>Disponibilidad % (manual opc.)</label><input id="f_disp" type="number" step="0.1" placeholder="auto"></div>
         </div>
-        <div class="row3">
+        <div class="row2">
           <div><label>Pérdida por agua (h)</label><input id="f_agua" type="number" step="0.1" value="0"></div>
+          <div><label>Pérdida por energía (h)</label><input id="f_energia" type="number" step="0.1" value="0"></div>
+        </div>
+        <div class="row2">
           <div><label>Pérdida por mantención (h)</label><input id="f_mant" type="number" step="0.1" value="0"></div>
           <div><label>Otras pérdidas (h)</label><input id="f_otras" type="number" step="0.1" value="0"></div>
         </div>
@@ -191,7 +196,12 @@ Rellenar depósito de grasa.</textarea></div>
         <div class="card"><div class="k">Horas programadas</div><div class="v" id="k_hp">0.0</div><small>h acumuladas</small></div>
         <div class="card"><div class="k">Horas efectivas</div><div class="v" id="k_he">0.0</div><small>h productivas</small></div>
         <div class="card"><div class="k">Utilización</div><div class="v" id="k_util">0%</div><small>he / hp</small></div>
-        <div class="card"><div class="k">Pérdida por agua</div><div class="v" id="k_agua">0.0</div><small>h y alertas</small></div>
+        <div class="card"><div class="k">Pérdida por agua</div><div class="v" id="k_agua">0.0</div><small>h acumuladas</small></div>
+        <div class="card"><div class="k">Pérdida por energía</div><div class="v" id="k_energia">0.0</div><small>h acumuladas</small></div>
+        <div class="card"><div class="k">Pérdida por mantención</div><div class="v" id="k_mant">0.0</div><small>h acumuladas</small></div>
+        <div class="card"><div class="k">Perforaciones</div><div class="v" id="k_tiros">0</div><small>tiros / pernos acumulados</small></div>
+        <div class="card"><div class="k">Avance total</div><div class="v" id="k_avance">0.0</div><small>metros acumulados</small></div>
+        <div class="card"><div class="k">Rendimiento</div><div class="v" id="k_rend">0.00</div><small>m / hora efectiva</small></div>
       </div>
 
       <div class="split">
@@ -216,7 +226,7 @@ Rellenar depósito de grasa.</textarea></div>
         <table>
           <thead>
             <tr>
-              <th>Fecha</th><th>Turno</th><th>Equipo</th><th>Operador</th><th>Sector</th><th>Estado</th><th>HP</th><th>HE</th><th>Agua</th><th>Pernos/Tiros</th><th>Observaciones</th><th></th>
+              <th>Fecha</th><th>Turno</th><th>Equipo</th><th>Operador</th><th>Sector</th><th>Estado</th><th>HP</th><th>HE</th><th>Agua</th><th>Energía</th><th>Pernos/Tiros</th><th>Observaciones</th><th></th>
             </tr>
           </thead>
           <tbody id="recordsBody"></tbody>
@@ -239,7 +249,7 @@ Rellenar depósito de grasa.</textarea></div>
       <ol>
         <li>Completa el formulario del costado y guarda un registro por turno o por día.</li>
         <li>En <strong>Historial</strong> revisa y elimina registros si es necesario.</li>
-        <li>En <strong>Informe automático</strong> el sistema consolida comentarios del operador, acciones ejecutadas, pérdidas por agua y conclusión operacional.</li>
+        <li>En <strong>Informe automático</strong> el sistema consolida comentarios del operador, acciones ejecutadas, pérdidas por agua, energía, mantención y conclusión operacional.</li>
         <li>Usa <strong>Exportar JSON</strong> para respaldo y traspaso entre computadores o celulares.</li>
         <li>Usa el archivo Excel del paquete para el control KPI de largo plazo.</li>
       </ol>
@@ -252,6 +262,7 @@ Rellenar depósito de grasa.</textarea></div>
 <script>
 const STORAGE_KEY = 'sistema_mina_pro_registros_v1';
 let records = [];
+let editingId = null;
 
 function todayISO(){
   const d = new Date();
@@ -296,6 +307,7 @@ function getFormData(){
     he,
     disp: dispManual ? Number(dispManual) : (hp>0 ? +(he/hp*100).toFixed(1) : 0),
     agua: Number(document.getElementById('f_agua').value || 0),
+    energia: Number(document.getElementById('f_energia').value || 0),
     mant: Number(document.getElementById('f_mant').value || 0),
     otras: Number(document.getElementById('f_otras').value || 0),
     tiros: Number(document.getElementById('f_tiros').value || 0),
@@ -319,7 +331,18 @@ function addRecord(){
     alert('Completa fecha, equipo y operador.');
     return;
   }
-  records.unshift(rec);
+
+  if(editingId){
+    rec.id = editingId;
+    const idx = records.findIndex(x => x.id === editingId);
+    if(idx >= 0) records[idx] = rec;
+    editingId = null;
+    document.querySelector('button.btn-primary[onclick="addRecord()"]').textContent = 'Guardar registro';
+    alert('Registro actualizado correctamente.');
+  } else {
+    records.unshift(rec);
+  }
+
   persist();
   renderAll();
   showTab('recordsTab', document.querySelector('[data-tab="recordsTab"]'));
@@ -379,17 +402,26 @@ function renderDashboard(){
   const hp = records.reduce((a,b)=>a+(Number(b.hp)||0),0);
   const he = records.reduce((a,b)=>a+(Number(b.he)||0),0);
   const agua = records.reduce((a,b)=>a+(Number(b.agua)||0),0);
+  const energia = records.reduce((a,b)=>a+(Number(b.energia)||0),0);
   const mant = records.reduce((a,b)=>a+(Number(b.mant)||0),0);
   const otras = records.reduce((a,b)=>a+(Number(b.otras)||0),0);
+  const tiros = records.reduce((a,b)=>a+(Number(b.tiros)||0),0);
+  const avance = records.reduce((a,b)=>a+(Number(b.avance)||0),0);
   document.getElementById('k_registros').textContent = records.length;
   document.getElementById('k_hp').textContent = hp.toFixed(1);
   document.getElementById('k_he').textContent = he.toFixed(1);
   document.getElementById('k_util').textContent = (hp>0 ? (he/hp*100).toFixed(1) : '0.0') + '%';
   document.getElementById('k_agua').textContent = agua.toFixed(1);
+  document.getElementById('k_energia').textContent = energia.toFixed(1);
+  document.getElementById('k_mant').textContent = mant.toFixed(1);
+  document.getElementById('k_tiros').textContent = tiros.toFixed(0);
+  document.getElementById('k_avance').textContent = avance.toFixed(1);
+  document.getElementById('k_rend').textContent = (he>0 ? (avance/he).toFixed(2) : '0.00');
 
-  const max = Math.max(agua,mant,otras,1);
+  const max = Math.max(agua,energia,mant,otras,1);
   const bars = [
     ['Agua',agua,'#3b82f6'],
+    ['Energía',energia,'#8b5cf6'],
     ['Mantención',mant,'#ef4444'],
     ['Otras',otras,'#f59e0b']
   ];
@@ -432,10 +464,119 @@ function renderRecords(){
       <td>${Number(r.hp).toFixed(1)}</td>
       <td>${Number(r.he).toFixed(1)}</td>
       <td>${Number(r.agua).toFixed(1)}</td>
+      <td>${Number(r.energia||0).toFixed(1)}</td>
       <td>${Number(r.tiros).toFixed(0)} / ${Number(r.avance).toFixed(1)} m</td>
       <td>${htmlEscape(r.observacion)}</td>
-      <td><button class="btn-light" onclick="deleteRecord(${r.id})">Eliminar</button></td>
-    </tr>`).join('') : '<tr><td colspan="12" style="color:#64748b">Sin registros.</td></tr>';
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-primary" onclick="editRecord(${r.id})">Editar</button>
+          <button class="btn-light" onclick="deleteRecord(${r.id})">Eliminar</button>
+        </div>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="13" style="color:#64748b">Sin registros.</td></tr>';
+}
+
+
+function resetForm(){
+  editingId = null;
+  const saveBtn = document.querySelector('button.btn-primary[onclick="addRecord()"]');
+  if(saveBtn) saveBtn.textContent = 'Guardar registro';
+  document.getElementById('f_fecha').value = todayISO();
+  document.getElementById('f_turno').value = 'A';
+  document.getElementById('f_tipo').value = 'Boltec';
+  document.getElementById('f_equipo').value = 'Boltec 361';
+  document.getElementById('f_operador').value = 'Pablo Orellana';
+  document.getElementById('f_supervisor').value = '';
+  document.getElementById('f_sector').value = 'Central HW 2N Tte 7';
+  document.getElementById('f_estado').value = 'Operativo';
+  document.getElementById('f_hp').value = 12;
+  document.getElementById('f_he').value = 0;
+  document.getElementById('f_disp').value = '';
+  document.getElementById('f_agua').value = 0;
+  document.getElementById('f_energia').value = 0;
+  document.getElementById('f_mant').value = 0;
+  document.getElementById('f_otras').value = 0;
+  document.getElementById('f_tiros').value = 0;
+  document.getElementById('f_avance').value = 0;
+  document.getElementById('f_malla').value = 0;
+  document.getElementById('f_motor').value = '';
+  document.getElementById('f_percusion').value = '';
+  document.getElementById('f_melec').value = '';
+  document.getElementById('f_checklist').value = 'Regular tensiones. Cambiar perno tope centralizador móvil.';
+  document.getElementById('f_cierre').value = 'Equipo operativo condicionado. Pendiente completar calibración general.';
+  document.getElementById('f_flagAgua').value = 'Sí';
+  document.getElementById('f_obs').value = 'El equipo no se ha ocupado con normalidad por problemas de agua en el sector.';
+  document.getElementById('f_acciones').value = 'Se calibra giro de brazo. Quedando ok. Velocidad. Falta calibrar equipo.\nSe ajustan clan de piolas COP 1028 y COP RR14.\nSe invierte flexible COP 1028 rotación.\nSe revisan rodillos de impulso sonda quedando ok.\nSe chequea vibrador silo. Responde a modo manual.\nSe encuentran flexibles sueltos COP 1028 6 x 250 mm.\nSe aprieta cabezal COP 1028.\nRellenar refrigerante.\nRellenar hidráulico.\nRellenar almo.\nSe limpia transductor B133, entregando presión. Falta probar en perforación.\nSe ajusta centro de perforación, con respecto a la sonda.\nRellenar depósito de grasa.';
+  document.getElementById('f_conclusion').value = 'Equipo en ajuste. Sin operación productiva normal por interferencia de agua en el sector.';
+}
+
+function editRecord(id){
+  const r = records.find(x => x.id === id);
+  if(!r) return;
+  editingId = id;
+  const saveBtn = document.querySelector('button.btn-primary[onclick="addRecord()"]');
+  if(saveBtn) saveBtn.textContent = 'Actualizar registro';
+  document.getElementById('f_fecha').value = r.fecha || '';
+  document.getElementById('f_turno').value = r.turno || 'A';
+  document.getElementById('f_tipo').value = r.tipo || 'Boltec';
+  document.getElementById('f_equipo').value = r.equipo || '';
+  document.getElementById('f_operador').value = r.operador || '';
+  document.getElementById('f_supervisor').value = r.supervisor || '';
+  document.getElementById('f_sector').value = r.sector || '';
+  document.getElementById('f_estado').value = r.estado || 'Operativo';
+  document.getElementById('f_hp').value = r.hp ?? 0;
+  document.getElementById('f_he').value = r.he ?? 0;
+  document.getElementById('f_disp').value = r.disp ?? '';
+  document.getElementById('f_agua').value = r.agua ?? 0;
+  document.getElementById('f_energia').value = r.energia ?? 0;
+  document.getElementById('f_mant').value = r.mant ?? 0;
+  document.getElementById('f_otras').value = r.otras ?? 0;
+  document.getElementById('f_tiros').value = r.tiros ?? 0;
+  document.getElementById('f_avance').value = r.avance ?? 0;
+  document.getElementById('f_malla').value = r.malla ?? 0;
+  document.getElementById('f_motor').value = r.motor || '';
+  document.getElementById('f_percusion').value = r.percusion || '';
+  document.getElementById('f_melec').value = r.motorElec || '';
+  document.getElementById('f_checklist').value = r.checklist || '';
+  document.getElementById('f_cierre').value = r.cierre || '';
+  document.getElementById('f_flagAgua').value = r.flagAgua || 'No';
+  document.getElementById('f_obs').value = r.observacion || '';
+  document.getElementById('f_acciones').value = r.acciones || '';
+  document.getElementById('f_conclusion').value = r.conclusion || '';
+  window.scrollTo({top:0, behavior:'smooth'});
+  alert('Registro cargado para edición. Modifica y presiona “Actualizar registro”.');
+}
+
+function exportResumenExcel(){
+  const rows = [
+    ['Fecha','Operador','Equipo','Pernos perforados','Largo (m)']
+  ];
+  records
+    .slice()
+    .sort((a,b)=> (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0))
+    .forEach(r=>{
+      rows.push([
+        r.fecha || '',
+        r.operador || '',
+        `${r.tipo || ''} ${r.equipo || ''}`.trim(),
+        Number(r.tiros || 0),
+        Number(r.avance || 0).toFixed(1)
+      ]);
+    });
+
+  const csv = rows.map(row =>
+    row.map(v => {
+      const s = String(v ?? '').replace(/"/g,'""');
+      return /[",;\n]/.test(s) ? `"${s}"` : s;
+    }).join(';')
+  ).join('\n');
+
+  const blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'registro_perforaciones_resumen.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function deleteRecord(id){
@@ -460,6 +601,7 @@ function buildReport(){
   const hp = rows.reduce((a,b)=>a+(Number(b.hp)||0),0);
   const he = rows.reduce((a,b)=>a+(Number(b.he)||0),0);
   const agua = rows.reduce((a,b)=>a+(Number(b.agua)||0),0);
+  const energia = rows.reduce((a,b)=>a+(Number(b.energia)||0),0);
   const mant = rows.reduce((a,b)=>a+(Number(b.mant)||0),0);
   const otras = rows.reduce((a,b)=>a+(Number(b.otras)||0),0);
   const tiros = rows.reduce((a,b)=>a+(Number(b.tiros)||0),0);
@@ -479,7 +621,7 @@ function buildReport(){
   const blockDays = Object.entries(grouped).map(([key,items])=>{
     return `<h3>${htmlEscape(key)}</h3>
       ${items.map(r=>`
-        <p><strong>${htmlEscape(r.equipo)}</strong> en <strong>${htmlEscape(r.sector)}</strong> (${htmlEscape(r.estado)}). Horas efectivas: ${Number(r.he).toFixed(1)} h de ${Number(r.hp).toFixed(1)} h programadas. Pérdida por agua: ${Number(r.agua).toFixed(1)} h. Pérdida por mantención: ${Number(r.mant).toFixed(1)} h.</p>
+        <p><strong>${htmlEscape(r.equipo)}</strong> en <strong>${htmlEscape(r.sector)}</strong> (${htmlEscape(r.estado)}). Horas efectivas: ${Number(r.he).toFixed(1)} h de ${Number(r.hp).toFixed(1)} h programadas. Pérdida por agua: ${Number(r.agua).toFixed(1)} h. Pérdida por energía: ${Number(r.energia||0).toFixed(1)} h. Pérdida por mantención: ${Number(r.mant).toFixed(1)} h.</p>
         <p><strong>Comentario operador:</strong> ${htmlEscape(r.observacion)}</p>
         <p><strong>Checklist/condición:</strong> ${htmlEscape(r.checklist)} ${r.cierre ? ' | ' + htmlEscape(r.cierre) : ''}</p>
         <p><strong>Acciones ejecutadas:</strong></p>
@@ -495,7 +637,7 @@ function buildReport(){
     ${hasWater ? `<div class="notice red">Se debe destacar que el equipo no se ha ocupado con normalidad por problemas de agua en el sector. Esta condición afecta la utilización real y debe mantenerse visible en el informe hasta normalizar el entorno de trabajo.</div>` : ''}
 
     <h3>1. Resumen ejecutivo</h3>
-    <p>En el período revisado se registraron <strong>${rows.length}</strong> reportes operacionales. La utilización acumulada fue de <strong>${hp>0?(he/hp*100).toFixed(1):'0.0'}%</strong>, con <strong>${he.toFixed(1)} h</strong> efectivas sobre <strong>${hp.toFixed(1)} h</strong> programadas. Las pérdidas principales corresponden a <strong>${agua.toFixed(1)} h por agua</strong>, <strong>${mant.toFixed(1)} h por mantención</strong> y <strong>${otras.toFixed(1)} h por otras causas</strong>.</p>
+    <p>En el período revisado se registraron <strong>${rows.length}</strong> reportes operacionales. La utilización acumulada fue de <strong>${hp>0?(he/hp*100).toFixed(1):'0.0'}%</strong>, con <strong>${he.toFixed(1)} h</strong> efectivas sobre <strong>${hp.toFixed(1)} h</strong> programadas. Las pérdidas principales corresponden a <strong>${agua.toFixed(1)} h por agua</strong>, <strong>${energia.toFixed(1)} h por energía</strong>, <strong>${mant.toFixed(1)} h por mantención</strong> y <strong>${otras.toFixed(1)} h por otras causas</strong>.</p>
 
     <h3>2. Producción y avance</h3>
     <ul>
@@ -544,7 +686,7 @@ function loadDemo(){
       supervisor: '',
       sector: 'Central HW 2N Tte 7',
       estado: 'Operativo condicionado',
-      hp: 12, he: 4, disp: 33.3, agua: 0, mant: 8, otras: 0,
+      hp: 12, he: 4, disp: 33.3, agua: 0, energia: 0, mant: 8, otras: 0,
       tiros: 4, avance: 3.5, malla: 0,
       motor: '507', percusion: '', motorElec: '',
       checklist: 'Regular tensiones. Cambiar perno tope centralizador móvil.',
@@ -564,7 +706,7 @@ function loadDemo(){
       supervisor: '',
       sector: 'Teniente 7',
       estado: 'Operativo condicionado',
-      hp: 12, he: 0, disp: 0, agua: 12, mant: 0, otras: 0,
+      hp: 12, he: 0, disp: 0, agua: 12, energia: 2, mant: 0, otras: 0,
       tiros: 0, avance: 0, malla: 0,
       motor: '511', percusion: '1:11', motorElec: '8:18',
       checklist: 'Pendiente completar calibración general del equipo.',
