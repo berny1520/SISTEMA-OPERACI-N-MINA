@@ -78,6 +78,7 @@ th{background:#f8fafc;color:#334155;position:sticky;top:0}
   .report-box{border:0;padding:0;max-width:none}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <header>
@@ -117,6 +118,17 @@ th{background:#f8fafc;color:#334155;position:sticky;top:0}
           <div><label>Operador</label><input id="f_operador" value="Pablo Orellana"></div>
           <div><label>Supervisor / capataz</label><input id="f_supervisor" value=""></div>
         </div>
+        <div class="row2">
+          <div><label>Grupo</label>
+            <select id="f_grupo">
+              <option>GRUPO 1</option>
+              <option>GRUPO 2</option>
+              <option>GRUPO 3</option>
+              <option>GRUPO 4</option>
+            </select>
+          </div>
+          <div></div>
+        </div>
         <div><label>Sector / frente</label><input id="f_sector" value="Central HW 2N Tte 7"></div>
         <div><label>Estado equipo</label><select id="f_estado"><option>Operativo</option><option>Operativo condicionado</option><option>Detenido</option><option>Mantenimiento</option></select></div>
       </div>
@@ -140,7 +152,11 @@ th{background:#f8fafc;color:#334155;position:sticky;top:0}
         </div>
         <div class="row3">
           <div><label>Pernos / tiros</label><input id="f_tiros" type="number" step="1" value="0"></div>
-          <div><label>Largo / avance (m)</label><input id="f_avance" type="number" step="0.1" value="0"></div>
+          <div><label>Largo unitario (m)</label><input id="f_largo_perno" type="number" step="0.1" value="3.5"></div>
+          <div><label>Metros acumulados del registro (auto)</label><input id="f_metros_total" type="number" step="0.1" value="0" readonly style="background:#f1f5f9;color:#475569;font-weight:700"></div>
+        </div>
+        <div class="row2">
+          <div><label>Metros ingresados manualmente manualmente (m)</label><input id="f_avance" type="number" step="0.1" value="0"></div>
           <div><label>Malla (m²)</label><input id="f_malla" type="number" step="0.1" value="0"></div>
         </div>
         <div class="row3">
@@ -191,6 +207,16 @@ Rellenar depósito de grasa.</textarea></div>
     </div>
 
     <section id="dashboardTab" class="panel">
+      <div class="toolbar" style="margin-bottom:14px">
+        <select id="kpiGrupoFilter" onchange="renderAll()" style="max-width:220px">
+          <option value="">Todos los grupos</option>
+          <option>GRUPO 1</option>
+          <option>GRUPO 2</option>
+          <option>GRUPO 3</option>
+          <option>GRUPO 4</option>
+        </select>
+        <div class="footer-note" style="display:flex;align-items:center">Filtro KPI por grupo y gráfico comparativo por grupo. Los respaldos antiguos se migran automáticamente para calcular metros acumulados.</div>
+      </div>
       <div class="cards">
         <div class="card"><div class="k">Registros</div><div class="v" id="k_registros">0</div><small>turnos cargados</small></div>
         <div class="card"><div class="k">Horas programadas</div><div class="v" id="k_hp">0.0</div><small>h acumuladas</small></div>
@@ -200,8 +226,9 @@ Rellenar depósito de grasa.</textarea></div>
         <div class="card"><div class="k">Pérdida por energía</div><div class="v" id="k_energia">0.0</div><small>h acumuladas</small></div>
         <div class="card"><div class="k">Pérdida por mantención</div><div class="v" id="k_mant">0.0</div><small>h acumuladas</small></div>
         <div class="card"><div class="k">Perforaciones</div><div class="v" id="k_tiros">0</div><small>tiros / pernos acumulados</small></div>
-        <div class="card"><div class="k">Avance total</div><div class="v" id="k_avance">0.0</div><small>metros acumulados</small></div>
-        <div class="card"><div class="k">Rendimiento</div><div class="v" id="k_rend">0.00</div><small>m / hora efectiva</small></div>
+        <div class="card"><div class="k">Metros acumulados perforados</div><div class="v" id="k_metros_total">0.0</div><small>perforaciones × largo unitario</small></div>
+        <div class="card"><div class="k">Metros ingresados manualmente</div><div class="v" id="k_avance">0.0</div><small>metros ingresados manualmente</small></div>
+        <div class="card"><div class="k">Rendimiento teórico</div><div class="v" id="k_rend">0.00</div><small>m acumulados / hora efectiva</small></div>
       </div>
 
       <div class="split">
@@ -213,6 +240,23 @@ Rellenar depósito de grasa.</textarea></div>
         <div class="panel">
           <h3 style="margin-top:0">Última condición registrada</h3>
           <div id="latestCard" class="footer-note">Sin datos.</div>
+          <div style="margin-top:18px">
+            <h3 style="margin:0 0 8px">Semáforo gerencial por grupo</h3>
+            <div id="grupoSemaforo" style="display:grid;gap:10px"></div>
+            <div class="footer-note">Referencia base: Verde &gt; 2.5 m/h · Amarillo 1.5 a 2.5 m/h · Rojo &lt; 1.5 m/h.</div>
+          </div>
+          <div style="margin-top:18px">
+            <h3 style="margin:0 0 8px">Metros acumulados por grupo</h3>
+            <canvas id="chartGrupo" height="180"></canvas>
+          </div>
+          <div style="margin-top:18px">
+            <h3 style="margin:0 0 8px">Pérdidas por grupo</h3>
+            <canvas id="chartPerdidasGrupo" height="180"></canvas>
+          </div>
+          <div style="margin-top:18px">
+            <h3 style="margin:0 0 8px">Rendimiento por grupo (m/h efectiva)</h3>
+            <canvas id="chartRendimientoGrupo" height="180"></canvas>
+          </div>
         </div>
       </div>
     </section>
@@ -226,7 +270,7 @@ Rellenar depósito de grasa.</textarea></div>
         <table>
           <thead>
             <tr>
-              <th>Fecha</th><th>Turno</th><th>Equipo</th><th>Operador</th><th>Sector</th><th>Estado</th><th>HP</th><th>HE</th><th>Agua</th><th>Energía</th><th>Pernos/Tiros</th><th>Observaciones</th><th></th>
+              <th>Fecha</th><th>Turno</th><th>Equipo</th><th>Operador</th><th>Grupo</th><th>Sector</th><th>Estado</th><th>HP</th><th>HE</th><th>Agua</th><th>Energía</th><th>Pernos</th><th>Largo</th><th>Metros total</th><th>Observaciones</th><th></th>
             </tr>
           </thead>
           <tbody id="recordsBody"></tbody>
@@ -252,6 +296,8 @@ Rellenar depósito de grasa.</textarea></div>
         <li>En <strong>Informe automático</strong> el sistema consolida comentarios del operador, acciones ejecutadas, pérdidas por agua, energía, mantención y conclusión operacional.</li>
         <li>Usa <strong>Exportar JSON</strong> para respaldo y traspaso entre computadores o celulares.</li>
         <li>Usa el archivo Excel del paquete para el control KPI de largo plazo.</li>
+        <li>Los KPI muestran metros acumulados perforados calculados como <strong>perforaciones × largo unitario</strong>.</li>
+        <li>Al importar respaldos antiguos, el sistema migra automáticamente los datos: si no existe <strong>largo unitario</strong>, toma el valor de avance cuando corresponde a un largo típico como 3.5 m.</li>
       </ol>
       <div class="notice">Este sistema queda preparado para Boltec, Jumbo y Scoop. Puedes renombrar equipos, operadores y sectores sin tocar el código.</div>
       <p class="footer-note">El informe resalta automáticamente cuando detecta agua en el sector o horas perdidas por agua.</p>
@@ -277,12 +323,22 @@ function updateDisponibilidadAuto(){
   const disp = hp > 0 ? +(he / hp * 100).toFixed(1) : 0;
   document.getElementById('f_disp').value = disp;
 }
+
+function updateMetrosAcumuladosAuto(){
+  const tiros = Number(document.getElementById('f_tiros').value || 0);
+  const largo = Number(document.getElementById('f_largo_perno').value || 0);
+  const metros = +(tiros * largo).toFixed(1);
+  document.getElementById('f_metros_total').value = metros;
+}
 document.getElementById('f_fecha').value = todayISO();
 document.getElementById('r_desde').value = '';
 document.getElementById('r_hasta').value = '';
 document.getElementById('f_hp').addEventListener('input', updateDisponibilidadAuto);
 document.getElementById('f_he').addEventListener('input', updateDisponibilidadAuto);
+document.getElementById('f_tiros').addEventListener('input', updateMetrosAcumuladosAuto);
+document.getElementById('f_largo_perno').addEventListener('input', updateMetrosAcumuladosAuto);
 updateDisponibilidadAuto();
+updateMetrosAcumuladosAuto();
 
 function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -310,6 +366,7 @@ function getFormData(){
     equipo: document.getElementById('f_equipo').value.trim(),
     operador: document.getElementById('f_operador').value.trim(),
     supervisor: document.getElementById('f_supervisor').value.trim(),
+    grupo: document.getElementById('f_grupo').value,
     sector: document.getElementById('f_sector').value.trim(),
     estado: document.getElementById('f_estado').value,
     hp,
@@ -320,6 +377,8 @@ function getFormData(){
     mant: Number(document.getElementById('f_mant').value || 0),
     otras: Number(document.getElementById('f_otras').value || 0),
     tiros: Number(document.getElementById('f_tiros').value || 0),
+    largo_perno: Number(document.getElementById('f_largo_perno').value || 0),
+    metros_total: +(Number(document.getElementById('f_tiros').value || 0) * Number(document.getElementById('f_largo_perno').value || 0)).toFixed(1),
     avance: Number(document.getElementById('f_avance').value || 0),
     malla: Number(document.getElementById('f_malla').value || 0),
     motor: document.getElementById('f_motor').value.trim(),
@@ -358,11 +417,12 @@ function addRecord(){
 }
 
 function persist(){
+  records = normalizeAllRecords(records);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 }
 function loadStorage(){
   try{
-    records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    records = normalizeAllRecords(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
   }catch(e){ records = []; }
 }
 
@@ -407,16 +467,49 @@ function htmlEscape(str){
   return String(str||'').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 }
 
+function normalizeLegacyRecord(r){
+  const out = {...r};
+  if(!out.grupo) out.grupo = 'GRUPO 1';
+
+  const tiros = Number(out.tiros || 0);
+  const avance = Number(out.avance || 0);
+
+  if(out.largo_perno == null || out.largo_perno === ''){
+    if(avance > 0 && avance <= 10){
+      out.largo_perno = avance;
+    } else {
+      out.largo_perno = 0;
+    }
+  }
+
+  out.largo_perno = Number(out.largo_perno || 0);
+
+  if(out.metros_total == null || out.metros_total === ''){
+    out.metros_total = +(tiros * out.largo_perno).toFixed(1);
+  } else {
+    out.metros_total = Number(out.metros_total || 0);
+  }
+
+  return out;
+}
+
+function normalizeAllRecords(arr){
+  return (arr || []).map(normalizeLegacyRecord);
+}
+
 function renderDashboard(){
-  const hp = records.reduce((a,b)=>a+(Number(b.hp)||0),0);
-  const he = records.reduce((a,b)=>a+(Number(b.he)||0),0);
-  const agua = records.reduce((a,b)=>a+(Number(b.agua)||0),0);
-  const energia = records.reduce((a,b)=>a+(Number(b.energia)||0),0);
-  const mant = records.reduce((a,b)=>a+(Number(b.mant)||0),0);
-  const otras = records.reduce((a,b)=>a+(Number(b.otras)||0),0);
-  const tiros = records.reduce((a,b)=>a+(Number(b.tiros)||0),0);
-  const avance = records.reduce((a,b)=>a+(Number(b.avance)||0),0);
-  document.getElementById('k_registros').textContent = records.length;
+  const grupoFiltro = document.getElementById('kpiGrupoFilter')?.value || '';
+  const base = grupoFiltro ? records.filter(r => (r.grupo || '').toUpperCase() === grupoFiltro) : records;
+  const hp = base.reduce((a,b)=>a+(Number(b.hp)||0),0);
+  const he = base.reduce((a,b)=>a+(Number(b.he)||0),0);
+  const agua = base.reduce((a,b)=>a+(Number(b.agua)||0),0);
+  const energia = base.reduce((a,b)=>a+(Number(b.energia)||0),0);
+  const mant = base.reduce((a,b)=>a+(Number(b.mant)||0),0);
+  const otras = base.reduce((a,b)=>a+(Number(b.otras)||0),0);
+  const tiros = base.reduce((a,b)=>a+(Number(b.tiros)||0),0);
+  const metrosTotal = base.reduce((a,b)=>a+(Number(b.metros_total)||((Number(b.tiros)||0)*(Number(b.largo_perno)||0))),0);
+  const avance = base.reduce((a,b)=>a+(Number(b.avance)||0),0);
+  document.getElementById('k_registros').textContent = base.length;
   document.getElementById('k_hp').textContent = hp.toFixed(1);
   document.getElementById('k_he').textContent = he.toFixed(1);
   document.getElementById('k_util').textContent = (hp>0 ? (he/hp*100).toFixed(1) : '0.0') + '%';
@@ -424,8 +517,9 @@ function renderDashboard(){
   document.getElementById('k_energia').textContent = energia.toFixed(1);
   document.getElementById('k_mant').textContent = mant.toFixed(1);
   document.getElementById('k_tiros').textContent = tiros.toFixed(0);
+  document.getElementById('k_metros_total').textContent = metrosTotal.toFixed(1);
   document.getElementById('k_avance').textContent = avance.toFixed(1);
-  document.getElementById('k_rend').textContent = (he>0 ? (avance/he).toFixed(2) : '0.00');
+  document.getElementById('k_rend').textContent = (he>0 ? (metrosTotal/he).toFixed(2) : '0.00');
 
   const max = Math.max(agua,energia,mant,otras,1);
   const bars = [
@@ -441,8 +535,8 @@ function renderDashboard(){
       <div>${val.toFixed(1)} h</div>
     </div>`).join('');
 
-  if(records.length){
-    const r = records[0];
+  if(base.length){
+    const r = base[0];
     document.getElementById('latestCard').innerHTML = `
       <div><strong>${htmlEscape(r.equipo)}</strong> · ${htmlEscape(r.tipo)}</div>
       <div style="margin-top:6px">${formatDate(r.fecha)} · Turno ${htmlEscape(r.turno)} · ${badgeForState(r.estado)}</div>
@@ -468,13 +562,16 @@ function renderRecords(){
       <td>${htmlEscape(r.turno)}</td>
       <td><strong>${htmlEscape(r.equipo)}</strong><br><span class="mono">${htmlEscape(r.tipo)}</span></td>
       <td>${htmlEscape(r.operador)}</td>
+      <td>${htmlEscape(r.grupo || '')}</td>
       <td>${htmlEscape(r.sector)}</td>
       <td>${badgeForState(r.estado)}</td>
       <td>${Number(r.hp).toFixed(1)}</td>
       <td>${Number(r.he).toFixed(1)}</td>
       <td>${Number(r.agua).toFixed(1)}</td>
       <td>${Number(r.energia||0).toFixed(1)}</td>
-      <td>${Number(r.tiros).toFixed(0)} / ${Number(r.avance).toFixed(1)} m</td>
+      <td>${Number(r.tiros).toFixed(0)}</td>
+      <td>${Number(r.largo_perno||0).toFixed(1)} m</td>
+      <td>${(Number(r.metros_total)||((Number(r.tiros)||0)*(Number(r.largo_perno)||0))).toFixed(1)} m</td>
       <td>${htmlEscape(r.observacion)}</td>
       <td>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -482,7 +579,7 @@ function renderRecords(){
           <button class="btn-light" onclick="deleteRecord(${r.id})">Eliminar</button>
         </div>
       </td>
-    </tr>`).join('') : '<tr><td colspan="13" style="color:#64748b">Sin registros.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="16" style="color:#64748b">Sin registros.</td></tr>';
 }
 
 
@@ -496,16 +593,20 @@ function resetForm(){
   document.getElementById('f_equipo').value = 'Boltec 361';
   document.getElementById('f_operador').value = 'Pablo Orellana';
   document.getElementById('f_supervisor').value = '';
+  document.getElementById('f_grupo').value = 'GRUPO 1';
   document.getElementById('f_sector').value = 'Central HW 2N Tte 7';
   document.getElementById('f_estado').value = 'Operativo';
   document.getElementById('f_hp').value = 12;
   document.getElementById('f_he').value = 0;
   updateDisponibilidadAuto();
+  updateMetrosAcumuladosAuto();
   document.getElementById('f_agua').value = 0;
   document.getElementById('f_energia').value = 0;
   document.getElementById('f_mant').value = 0;
   document.getElementById('f_otras').value = 0;
   document.getElementById('f_tiros').value = 0;
+  document.getElementById('f_largo_perno').value = 3.5;
+  document.getElementById('f_metros_total').value = 0;
   document.getElementById('f_avance').value = 0;
   document.getElementById('f_malla').value = 0;
   document.getElementById('f_motor').value = '';
@@ -531,16 +632,20 @@ function editRecord(id){
   document.getElementById('f_equipo').value = r.equipo || '';
   document.getElementById('f_operador').value = r.operador || '';
   document.getElementById('f_supervisor').value = r.supervisor || '';
+  document.getElementById('f_grupo').value = r.grupo || 'GRUPO 1';
   document.getElementById('f_sector').value = r.sector || '';
   document.getElementById('f_estado').value = r.estado || 'Operativo';
   document.getElementById('f_hp').value = r.hp ?? 0;
   document.getElementById('f_he').value = r.he ?? 0;
   updateDisponibilidadAuto();
+  updateMetrosAcumuladosAuto();
   document.getElementById('f_agua').value = r.agua ?? 0;
   document.getElementById('f_energia').value = r.energia ?? 0;
   document.getElementById('f_mant').value = r.mant ?? 0;
   document.getElementById('f_otras').value = r.otras ?? 0;
   document.getElementById('f_tiros').value = r.tiros ?? 0;
+  document.getElementById('f_largo_perno').value = r.largo_perno ?? 3.5;
+  document.getElementById('f_metros_total').value = r.metros_total ?? (((r.tiros ?? 0) * (r.largo_perno ?? 3.5)).toFixed(1));
   document.getElementById('f_avance').value = r.avance ?? 0;
   document.getElementById('f_malla').value = r.malla ?? 0;
   document.getElementById('f_motor').value = r.motor || '';
@@ -558,7 +663,7 @@ function editRecord(id){
 
 function exportResumenExcel(){
   const rows = [
-    ['Fecha','Operador','Equipo','Pernos perforados','Largo (m)']
+    ['Fecha','Operador','Grupo','Equipo','Pernos perforados','Largo unitario (m)','Metros acumulados (perforaciones × largo)','Metros ingresados manualmente (m)']
   ];
   records
     .slice()
@@ -567,8 +672,11 @@ function exportResumenExcel(){
       rows.push([
         r.fecha || '',
         r.operador || '',
+        r.grupo || '',
         `${r.tipo || ''} ${r.equipo || ''}`.trim(),
         Number(r.tiros || 0),
+        Number(r.largo_perno || 0).toFixed(1),
+        Number(r.metros_total || ((Number(r.tiros || 0) * Number(r.largo_perno || 0)))).toFixed(1),
         Number(r.avance || 0).toFixed(1)
       ]);
     });
@@ -614,6 +722,7 @@ function buildReport(){
   const mant = rows.reduce((a,b)=>a+(Number(b.mant)||0),0);
   const otras = rows.reduce((a,b)=>a+(Number(b.otras)||0),0);
   const tiros = rows.reduce((a,b)=>a+(Number(b.tiros)||0),0);
+  const metrosTotal = rows.reduce((a,b)=>a+(Number(b.metros_total)||((Number(b.tiros)||0)*(Number(b.largo_perno)||0))),0);
   const avance = rows.reduce((a,b)=>a+(Number(b.avance)||0),0);
   const malla = rows.reduce((a,b)=>a+(Number(b.malla)||0),0);
   const equipSet = [...new Set(rows.map(r => r.equipo))];
@@ -651,7 +760,8 @@ function buildReport(){
     <h3>2. Producción y avance</h3>
     <ul>
       <li>Pernos / tiros ejecutados: <strong>${tiros.toFixed(0)}</strong></li>
-      <li>Largo / avance acumulado: <strong>${avance.toFixed(1)} m</strong></li>
+      <li>Metros acumulados perforados (perforaciones × largo): <strong>${metrosTotal.toFixed(1)} m</strong></li>
+      <li>Metros ingresados manualmente manualmente: <strong>${avance.toFixed(1)} m</strong></li>
       <li>Malla acumulada: <strong>${malla.toFixed(1)} m²</strong></li>
     </ul>
 
@@ -677,10 +787,86 @@ function buildReport(){
   document.getElementById('reportBox').innerHTML = reportHTML;
 }
 
+
+function renderSemaforoGrupo(labels, acc){
+  const box = document.getElementById('grupoSemaforo');
+  if(!box) return;
+  if(!labels.length){
+    box.innerHTML = '<div class="footer-note">Sin datos por grupo.</div>';
+    return;
+  }
+  box.innerHTML = labels.map(g=>{
+    const metros = +(acc[g].metros || 0).toFixed(1);
+    const he = +(acc[g].he || 0).toFixed(1);
+    const perdidas = +(acc[g].perdidas || 0).toFixed(1);
+    const rend = he > 0 ? +(metros / he).toFixed(2) : 0;
+    let color = '#16a34a', bg='#dcfce7', txt='Bueno';
+    if(rend < 1.5){ color='#dc2626'; bg='#fee2e2'; txt='Crítico'; }
+    else if(rend <= 2.5){ color='#d97706'; bg='#fef3c7'; txt='Regular'; }
+    return `<div style="border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#fff;display:grid;grid-template-columns:1.1fr .9fr auto;gap:10px;align-items:center">
+      <div>
+        <div style="font-weight:800;color:var(--blue)">${g}</div>
+        <div style="font-size:12px;color:var(--muted)">Metros: ${metros.toFixed(1)} m · HE: ${he.toFixed(1)} h · Pérdidas: ${perdidas.toFixed(1)} h</div>
+      </div>
+      <div style="font-size:14px"><strong>${rend.toFixed(2)} m/h</strong></div>
+      <div style="padding:7px 12px;border-radius:999px;font-size:12px;font-weight:800;background:${bg};color:${color}">${txt}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderChartGrupo(){
+  const acc = {};
+  records.forEach(r=>{
+    const g = (r.grupo || 'SIN GRUPO').toUpperCase();
+    if(!acc[g]) acc[g] = {metros:0, perdidas:0, he:0};
+    acc[g].metros += Number(r.metros_total || ((Number(r.tiros)||0)*(Number(r.largo_perno)||0)));
+    acc[g].perdidas += Number(r.agua||0) + Number(r.energia||0) + Number(r.mant||0) + Number(r.otras||0);
+    acc[g].he += Number(r.he||0);
+  });
+
+  const labels = Object.keys(acc);
+  const metrosVals = labels.map(g => +acc[g].metros.toFixed(1));
+  const perdidasVals = labels.map(g => +acc[g].perdidas.toFixed(1));
+  const rendimientoVals = labels.map(g => acc[g].he > 0 ? +(acc[g].metros / acc[g].he).toFixed(2) : 0);
+
+  renderSemaforoGrupo(labels, acc);
+
+  const canvas1 = document.getElementById('chartGrupo');
+  if(canvas1){
+    if(window.chartGrupoInstance) window.chartGrupoInstance.destroy();
+    window.chartGrupoInstance = new Chart(canvas1.getContext('2d'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label:'Metros acumulados', data: metrosVals }]},
+      options: { responsive:true, plugins:{legend:{display:false}} }
+    });
+  }
+
+  const canvas2 = document.getElementById('chartPerdidasGrupo');
+  if(canvas2){
+    if(window.chartPerdidasGrupoInstance) window.chartPerdidasGrupoInstance.destroy();
+    window.chartPerdidasGrupoInstance = new Chart(canvas2.getContext('2d'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label:'Horas perdidas', data: perdidasVals }]},
+      options: { responsive:true, plugins:{legend:{display:false}} }
+    });
+  }
+
+  const canvas3 = document.getElementById('chartRendimientoGrupo');
+  if(canvas3){
+    if(window.chartRendimientoGrupoInstance) window.chartRendimientoGrupoInstance.destroy();
+    window.chartRendimientoGrupoInstance = new Chart(canvas3.getContext('2d'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label:'m/h efectiva', data: rendimientoVals }]},
+      options: { responsive:true, plugins:{legend:{display:false}} }
+    });
+  }
+}
+
 function renderAll(){
   renderDashboard();
   renderRecords();
   buildReport();
+  renderChartGrupo();
 }
 
 function loadDemo(){
@@ -693,10 +879,11 @@ function loadDemo(){
       equipo: 'Boltec 361',
       operador: 'Pablo Orellana',
       supervisor: '',
+      grupo: 'GRUPO 1',
       sector: 'Central HW 2N Tte 7',
       estado: 'Operativo condicionado',
       hp: 12, he: 4, disp: 33.3, agua: 0, energia: 0, mant: 8, otras: 0,
-      tiros: 4, avance: 3.5, malla: 0,
+      tiros: 4, largo_perno: 3.5, metros_total: 14.0, avance: 3.5, malla: 0,
       motor: '507', percusion: '', motorElec: '',
       checklist: 'Regular tensiones. Cambiar perno tope centralizador móvil.',
       cierre: 'Equipo operativo y lavado al cierre del turno.',
@@ -713,10 +900,11 @@ function loadDemo(){
       equipo: 'Boltec 361',
       operador: 'Pablo Orellana',
       supervisor: '',
+      grupo: 'GRUPO 2',
       sector: 'Teniente 7',
       estado: 'Operativo condicionado',
       hp: 12, he: 0, disp: 0, agua: 12, energia: 2, mant: 0, otras: 0,
-      tiros: 0, avance: 0, malla: 0,
+      tiros: 0, largo_perno: 3.5, metros_total: 0, avance: 0, malla: 0,
       motor: '511', percusion: '1:11', motorElec: '8:18',
       checklist: 'Pendiente completar calibración general del equipo.',
       cierre: 'Equipo sin uso productivo normal por problema de agua en el sector.',
