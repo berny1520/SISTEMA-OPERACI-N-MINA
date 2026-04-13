@@ -129,6 +129,15 @@ th{background:#f8fafc;color:#334155;position:sticky;top:0}
           </div>
           <div></div>
         </div>
+                <div class="row2">
+          <div><label>Tipo de trabajo</label>
+            <select id="f_tipo_trabajo">
+              <option value="Perforación">Solo perforación</option>
+              <option value="Perforación + lechado">Perforación y lechado</option>
+            </select>
+          </div>
+          <div></div>
+        </div>
         <div><label>Sector / frente</label><input id="f_sector" value="Central HW 2N Tte 7"></div>
         <div><label>Estado equipo</label><select id="f_estado"><option>Operativo</option><option>Operativo condicionado</option><option>Detenido</option><option>Mantenimiento</option></select></div>
       </div>
@@ -149,15 +158,6 @@ th{background:#f8fafc;color:#334155;position:sticky;top:0}
         <div class="row2">
           <div><label>Pérdida por mantención (h)</label><input id="f_mant" type="number" step="0.1" value="0"></div>
           <div><label>Otras pérdidas (h)</label><input id="f_otras" type="number" step="0.1" value="0"></div>
-        </div>
-        <div class="row2">
-          <div><label>Tipo de trabajo</label>
-            <select id="f_tipo_trabajo">
-              <option>Solo perforación</option>
-              <option>Perforación y lechado</option>
-            </select>
-          </div>
-          <div><label>Observación tipo de trabajo</label><input id="f_obs_tipo_trabajo" placeholder="Ej: prueba, lechado parcial, sin lechado"></div>
         </div>
         <div class="row3">
           <div><label>Pernos / tiros</label><input id="f_tiros" type="number" step="1" value="0"></div>
@@ -235,6 +235,8 @@ Rellenar depósito de grasa.</textarea></div>
         <div class="card"><div class="k">Pérdida por energía</div><div class="v" id="k_energia">0.0</div><small>h acumuladas</small></div>
         <div class="card"><div class="k">Pérdida por mantención</div><div class="v" id="k_mant">0.0</div><small>h acumuladas</small></div>
         <div class="card"><div class="k">Perforaciones</div><div class="v" id="k_tiros">0</div><small>tiros / pernos acumulados</small></div>
+        <div class="card"><div class="k">Solo perforación</div><div class="v" id="k_perf_solo">0</div><small>tiros sin lechado</small></div>
+        <div class="card"><div class="k">Perforación y lechado</div><div class="v" id="k_perf_lechadas">0</div><small>tiros con lechado</small></div>
         <div class="card"><div class="k">Metros acumulados perforados</div><div class="v" id="k_metros_total">0.0</div><small>perforaciones × largo unitario</small></div>
         <div class="card"><div class="k">Metros ingresados manualmente</div><div class="v" id="k_avance">0.0</div><small>metros ingresados manualmente</small></div>
         <div class="card"><div class="k">Rendimiento teórico</div><div class="v" id="k_rend">0.00</div><small>m acumulados / hora efectiva</small></div>
@@ -279,7 +281,7 @@ Rellenar depósito de grasa.</textarea></div>
         <table>
           <thead>
             <tr>
-              <th>Fecha</th><th>Turno</th><th>Equipo</th><th>Operador</th><th>Grupo</th><th>Sector</th><th>Estado</th><th>Tipo de trabajo</th><th>HP</th><th>HE</th><th>Agua</th><th>Energía</th><th>Pernos</th><th>Largo</th><th>Metros total</th><th>Observaciones</th><th></th>
+              <th>Fecha</th><th>Turno</th><th>Equipo</th><th>Operador</th><th>Grupo</th><th>Tipo trabajo</th><th>Sector</th><th>Estado</th><th>HP</th><th>HE</th><th>Agua</th><th>Energía</th><th>Pernos</th><th>Largo</th><th>Metros total</th><th>Observaciones</th><th></th>
             </tr>
           </thead>
           <tbody id="recordsBody"></tbody>
@@ -376,10 +378,9 @@ function getFormData(){
     operador: document.getElementById('f_operador').value.trim(),
     supervisor: document.getElementById('f_supervisor').value.trim(),
     grupo: document.getElementById('f_grupo').value,
+    tipo_trabajo: document.getElementById('f_tipo_trabajo').value,
     sector: document.getElementById('f_sector').value.trim(),
     estado: document.getElementById('f_estado').value,
-    tipo_trabajo: document.getElementById('f_tipo_trabajo').value,
-    obs_tipo_trabajo: document.getElementById('f_obs_tipo_trabajo').value.trim(),
     hp,
     he,
     disp: (hp>0 ? +(he/hp*100).toFixed(1) : 0),
@@ -481,6 +482,7 @@ function htmlEscape(str){
 function normalizeLegacyRecord(r){
   const out = {...r};
   if(!out.grupo) out.grupo = 'GRUPO 1';
+  if(!out.tipo_trabajo) out.tipo_trabajo = 'Perforación';
 
   const tiros = Number(out.tiros || 0);
   const avance = Number(out.avance || 0);
@@ -518,6 +520,8 @@ function renderDashboard(){
   const mant = base.reduce((a,b)=>a+(Number(b.mant)||0),0);
   const otras = base.reduce((a,b)=>a+(Number(b.otras)||0),0);
   const tiros = base.reduce((a,b)=>a+(Number(b.tiros)||0),0);
+  const perfSolo = base.filter(r => (r.tipo_trabajo || 'Perforación') === 'Perforación').reduce((a,b)=>a+(Number(b.tiros)||0),0);
+  const perfLechadas = base.filter(r => r.tipo_trabajo === 'Perforación + lechado').reduce((a,b)=>a+(Number(b.tiros)||0),0);
   const metrosTotal = base.reduce((a,b)=>a+(Number(b.metros_total)||((Number(b.tiros)||0)*(Number(b.largo_perno)||0))),0);
   const avance = base.reduce((a,b)=>a+(Number(b.avance)||0),0);
   document.getElementById('k_registros').textContent = base.length;
@@ -528,6 +532,8 @@ function renderDashboard(){
   document.getElementById('k_energia').textContent = energia.toFixed(1);
   document.getElementById('k_mant').textContent = mant.toFixed(1);
   document.getElementById('k_tiros').textContent = tiros.toFixed(0);
+  document.getElementById('k_perf_solo').textContent = perfSolo.toFixed(0);
+  document.getElementById('k_perf_lechadas').textContent = perfLechadas.toFixed(0);
   document.getElementById('k_metros_total').textContent = metrosTotal.toFixed(1);
   document.getElementById('k_avance').textContent = avance.toFixed(1);
   document.getElementById('k_rend').textContent = (he>0 ? (metrosTotal/he).toFixed(2) : '0.00');
@@ -574,9 +580,9 @@ function renderRecords(){
       <td><strong>${htmlEscape(r.equipo)}</strong><br><span class="mono">${htmlEscape(r.tipo)}</span></td>
       <td>${htmlEscape(r.operador)}</td>
       <td>${htmlEscape(r.grupo || '')}</td>
+      <td>${htmlEscape(r.tipo_trabajo || 'Perforación')}</td>
       <td>${htmlEscape(r.sector)}</td>
       <td>${badgeForState(r.estado)}</td>
-      <td>${htmlEscape(r.tipo_trabajo || '')}${r.obs_tipo_trabajo ? '<br><span class="footer-note">' + htmlEscape(r.obs_tipo_trabajo) + '</span>' : ''}</td>
       <td>${Number(r.hp).toFixed(1)}</td>
       <td>${Number(r.he).toFixed(1)}</td>
       <td>${Number(r.agua).toFixed(1)}</td>
@@ -606,10 +612,9 @@ function resetForm(){
   document.getElementById('f_operador').value = 'Pablo Orellana';
   document.getElementById('f_supervisor').value = '';
   document.getElementById('f_grupo').value = 'GRUPO 1';
+  document.getElementById('f_tipo_trabajo').value = 'Perforación';
   document.getElementById('f_sector').value = 'Central HW 2N Tte 7';
   document.getElementById('f_estado').value = 'Operativo';
-  document.getElementById('f_tipo_trabajo').value = 'Solo perforación';
-  document.getElementById('f_obs_tipo_trabajo').value = '';
   document.getElementById('f_hp').value = 12;
   document.getElementById('f_he').value = 0;
   updateDisponibilidadAuto();
@@ -647,10 +652,9 @@ function editRecord(id){
   document.getElementById('f_operador').value = r.operador || '';
   document.getElementById('f_supervisor').value = r.supervisor || '';
   document.getElementById('f_grupo').value = r.grupo || 'GRUPO 1';
+  document.getElementById('f_tipo_trabajo').value = r.tipo_trabajo || 'Perforación';
   document.getElementById('f_sector').value = r.sector || '';
   document.getElementById('f_estado').value = r.estado || 'Operativo';
-  document.getElementById('f_tipo_trabajo').value = r.tipo_trabajo || 'Solo perforación';
-  document.getElementById('f_obs_tipo_trabajo').value = r.obs_tipo_trabajo || '';
   document.getElementById('f_hp').value = r.hp ?? 0;
   document.getElementById('f_he').value = r.he ?? 0;
   updateDisponibilidadAuto();
@@ -738,6 +742,8 @@ function buildReport(){
   const mant = rows.reduce((a,b)=>a+(Number(b.mant)||0),0);
   const otras = rows.reduce((a,b)=>a+(Number(b.otras)||0),0);
   const tiros = rows.reduce((a,b)=>a+(Number(b.tiros)||0),0);
+  const perfSolo = rows.filter(r => (r.tipo_trabajo || 'Perforación') === 'Perforación').reduce((a,b)=>a+(Number(b.tiros)||0),0);
+  const perfLechadas = rows.filter(r => r.tipo_trabajo === 'Perforación + lechado').reduce((a,b)=>a+(Number(b.tiros)||0),0);
   const metrosTotal = rows.reduce((a,b)=>a+(Number(b.metros_total)||((Number(b.tiros)||0)*(Number(b.largo_perno)||0))),0);
   const avance = rows.reduce((a,b)=>a+(Number(b.avance)||0),0);
   const malla = rows.reduce((a,b)=>a+(Number(b.malla)||0),0);
@@ -755,7 +761,8 @@ function buildReport(){
   const blockDays = Object.entries(grouped).map(([key,items])=>{
     return `<h3>${htmlEscape(key)}</h3>
       ${items.map(r=>`
-        <p><strong>${htmlEscape(r.equipo)}</strong> en <strong>${htmlEscape(r.sector)}</strong> (${htmlEscape(r.estado)}). <strong>Tipo de trabajo:</strong> ${htmlEscape(r.tipo_trabajo || '')}${r.obs_tipo_trabajo ? ' (' + htmlEscape(r.obs_tipo_trabajo) + ')' : ''}. Horas efectivas: ${Number(r.he).toFixed(1)} h de ${Number(r.hp).toFixed(1)} h programadas. Pérdida por agua: ${Number(r.agua).toFixed(1)} h. Pérdida por energía: ${Number(r.energia||0).toFixed(1)} h. Pérdida por mantención: ${Number(r.mant).toFixed(1)} h.</p>
+        <p><strong>${htmlEscape(r.equipo)}</strong> en <strong>${htmlEscape(r.sector)}</strong> (${htmlEscape(r.estado)}). Horas efectivas: ${Number(r.he).toFixed(1)} h de ${Number(r.hp).toFixed(1)} h programadas. Pérdida por agua: ${Number(r.agua).toFixed(1)} h. Pérdida por energía: ${Number(r.energia||0).toFixed(1)} h. Pérdida por mantención: ${Number(r.mant).toFixed(1)} h.</p>
+        <p><strong>Tipo de trabajo:</strong> ${htmlEscape(r.tipo_trabajo || 'Perforación')}</p>
         <p><strong>Comentario operador:</strong> ${htmlEscape(r.observacion)}</p>
         <p><strong>Checklist/condición:</strong> ${htmlEscape(r.checklist)} ${r.cierre ? ' | ' + htmlEscape(r.cierre) : ''}</p>
         <p><strong>Acciones ejecutadas:</strong></p>
@@ -776,10 +783,11 @@ function buildReport(){
     <h3>2. Producción y avance</h3>
     <ul>
       <li>Pernos / tiros ejecutados: <strong>${tiros.toFixed(0)}</strong></li>
+      <li>Solo perforación: <strong>${perfSolo.toFixed(0)}</strong></li>
+      <li>Perforación y lechado: <strong>${perfLechadas.toFixed(0)}</strong></li>
       <li>Metros acumulados perforados (perforaciones × largo): <strong>${metrosTotal.toFixed(1)} m</strong></li>
       <li>Metros ingresados manualmente manualmente: <strong>${avance.toFixed(1)} m</strong></li>
       <li>Malla acumulada: <strong>${malla.toFixed(1)} m²</strong></li>
-      <li>Tipo de trabajo registrado: <strong>${rows.filter(r => (r.tipo_trabajo||'')==='Solo perforación').length}</strong> registros de solo perforación y <strong>${rows.filter(r => (r.tipo_trabajo||'')==='Perforación y lechado').length}</strong> registros de perforación y lechado.</li>
     </ul>
 
     <h3>3. Estado actual del equipo</h3>
@@ -897,10 +905,9 @@ function loadDemo(){
       operador: 'Pablo Orellana',
       supervisor: '',
       grupo: 'GRUPO 1',
+      tipo_trabajo: 'Perforación',
       sector: 'Central HW 2N Tte 7',
       estado: 'Operativo condicionado',
-      tipo_trabajo: 'Solo perforación',
-      obs_tipo_trabajo: 'Prueba inicial en terreno',
       hp: 12, he: 4, disp: 33.3, agua: 0, energia: 0, mant: 8, otras: 0,
       tiros: 4, largo_perno: 3.5, metros_total: 14.0, avance: 3.5, malla: 0,
       motor: '507', percusion: '', motorElec: '',
@@ -920,10 +927,9 @@ function loadDemo(){
       operador: 'Pablo Orellana',
       supervisor: '',
       grupo: 'GRUPO 2',
+      tipo_trabajo: 'Perforación + lechado',
       sector: 'Teniente 7',
       estado: 'Operativo condicionado',
-      tipo_trabajo: 'Perforación y lechado',
-      obs_tipo_trabajo: 'Sin operación continua por agua en sector',
       hp: 12, he: 0, disp: 0, agua: 12, energia: 2, mant: 0, otras: 0,
       tiros: 0, largo_perno: 3.5, metros_total: 0, avance: 0, malla: 0,
       motor: '511', percusion: '1:11', motorElec: '8:18',
