@@ -212,6 +212,7 @@ Rellenar depósito de grasa.</textarea></div>
       <div class="tab active" data-tab="dashboardTab" onclick="showTab('dashboardTab',this)">Dashboard</div>
       <div class="tab" data-tab="recordsTab" onclick="showTab('recordsTab',this)">Historial</div>
       <div class="tab" data-tab="reportTab" onclick="showTab('reportTab',this)">Informe automático</div>
+      <div class="tab" data-tab="whatsAppTab" onclick="showTab('whatsAppTab',this)">WhatsApp Boltec</div>
       <div class="tab" data-tab="helpTab" onclick="showTab('helpTab',this)">Ayuda</div>
     </div>
 
@@ -299,6 +300,14 @@ Rellenar depósito de grasa.</textarea></div>
       <div id="reportBox" class="report-box"></div>
     </section>
 
+    <section id="whatsAppTab" class="panel hidden">
+      <h2>Historial WhatsApp · Boltec MC</h2>
+      <p>Confirma la fecha y el turno sugeridos con el parte. El autor es quien envió el mensaje. Los datos de las fotos se ingresan desde la captura diaria.</p>
+      <label>Orden de fecha <select id="waOrden"><option value="mdy">Mes/día/año</option><option value="dmy">Día/mes/año</option></select></label>
+      <label>Exportación WhatsApp <input id="waArchivo" type="file" accept=".zip,.txt"></label>
+      <p id="waEstado" role="status"></p><p id="waCantidad"></p>
+      <div style="overflow:auto"><table><thead><tr><th>Mensaje</th><th>Turno sugerido</th><th>Equipo</th><th>Autor</th><th>Sector</th><th>Condición</th><th>Reporte</th><th>Adjuntos en el ZIP</th><th>Acción</th></tr></thead><tbody id="waFilas"></tbody></table></div>
+    </section>
     <section id="helpTab" class="panel hidden">
       <h2 style="margin-top:0">Cómo usar el sistema</h2>
       <ol>
@@ -354,12 +363,13 @@ updateMetrosAcumuladosAuto();
 function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   if(el) el.classList.add('active');
-  ['dashboardTab','recordsTab','reportTab','helpTab'].forEach(x=>document.getElementById(x).classList.add('hidden'));
+  ['dashboardTab','recordsTab','reportTab','helpTab','whatsAppTab'].forEach(x=>document.getElementById(x).classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
   if(id==='reportTab') buildReport();
 }
 
 function badgeForState(state){
+  if(!state) return '<span class="badge warn">Sin informar</span>';
   if((state||'').toLowerCase().includes('detenido')) return '<span class="badge stop">Detenido</span>';
   if((state||'').toLowerCase().includes('condicion')) return '<span class="badge warn">Condicionado</span>';
   if((state||'').toLowerCase().includes('mant')) return '<span class="badge warn">Mantención</span>';
@@ -412,6 +422,19 @@ function addRecord(){
     return;
   }
 
+  if(origenWA){
+    if (!rec.estado || ['f_hp','f_he','f_tiros'].some(k=>waElement(k).value==='')) {
+      alert('Confirma la condición e ingresa horas programadas, horas efectivas y tiros con respaldo. Usa 0 si el parte lo confirma.');
+      return;
+    }
+    const canon=x=>String(x).toLowerCase().replace(/[\s-]/g,'');
+    const turno=x=>({'día':'A','noche':'B'})[String(x).toLowerCase()]||String(x).toUpperCase();
+    if(records.some(x=>x.id!==editingId&&x.fecha===rec.fecha&&turno(x.turno)===turno(rec.turno)&&canon(x.equipo)===canon(rec.equipo))){
+      alert('Ya existe un registro para ese equipo, fecha y turno. Revisa el registro en Historial.');
+      return;
+    }
+    origenWA=null;
+  }
   if(editingId){
     rec.id = editingId;
     const idx = records.findIndex(x => x.id === editingId);
@@ -481,6 +504,7 @@ function htmlEscape(str){
 
 function normalizeLegacyRecord(r){
   const out = {...r};
+  if(out.desdeWhatsApp) return out;
   if(!out.grupo) out.grupo = 'GRUPO 1';
   if(!out.tipo_trabajo) out.tipo_trabajo = 'Perforación';
 
@@ -573,6 +597,7 @@ function renderRecords(){
     const blob = `${r.fecha} ${r.turno} ${r.tipo} ${r.equipo} ${r.operador} ${r.sector} ${r.observacion}`.toLowerCase();
     return (!txt || blob.includes(txt)) && (!tipo || r.tipo===tipo);
   });
+  const dato = (v, dec, unidad='') => v == null || v === '' ? '—' : Number(v).toFixed(dec)+unidad;
   document.getElementById('recordsBody').innerHTML = rows.length ? rows.map(r => `
     <tr>
       <td>${formatDate(r.fecha)}</td>
@@ -583,13 +608,13 @@ function renderRecords(){
       <td>${htmlEscape(r.tipo_trabajo || 'Perforación')}</td>
       <td>${htmlEscape(r.sector)}</td>
       <td>${badgeForState(r.estado)}</td>
-      <td>${Number(r.hp).toFixed(1)}</td>
-      <td>${Number(r.he).toFixed(1)}</td>
-      <td>${Number(r.agua).toFixed(1)}</td>
-      <td>${Number(r.energia||0).toFixed(1)}</td>
-      <td>${Number(r.tiros).toFixed(0)}</td>
-      <td>${Number(r.largo_perno||0).toFixed(1)} m</td>
-      <td>${(Number(r.metros_total)||((Number(r.tiros)||0)*(Number(r.largo_perno)||0))).toFixed(1)} m</td>
+      <td>${dato(r.hp,1)}</td>
+      <td>${dato(r.he,1)}</td>
+      <td>${dato(r.agua,1)}</td>
+      <td>${dato(r.energia,1)}</td>
+      <td>${dato(r.tiros,0)}</td>
+      <td>${dato(r.largo_perno,1," m")}</td>
+      <td>${dato(r.metros_total,1," m")}</td>
       <td>${htmlEscape(r.observacion)}</td>
       <td>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -602,6 +627,7 @@ function renderRecords(){
 
 
 function resetForm(){
+  origenWA=null;
   editingId = null;
   const saveBtn = document.querySelector('button.btn-primary[onclick="addRecord()"]');
   if(saveBtn) saveBtn.textContent = 'Guardar registro';
@@ -640,8 +666,10 @@ function resetForm(){
 }
 
 function editRecord(id){
+  origenWA=null;
   const r = records.find(x => x.id === id);
   if(!r) return;
+  origenWA = r.desdeWhatsApp ? r : null;
   editingId = id;
   const saveBtn = document.querySelector('button.btn-primary[onclick="addRecord()"]');
   if(saveBtn) saveBtn.textContent = 'Actualizar registro';
@@ -945,8 +973,148 @@ function loadDemo(){
   renderAll();
 }
 
+const HISTORIAL_WA_BOLTEC = [{"id":"[\"2026-10-29 19:41:09\",\"Pato Inostroza\",\"Boltec 381 operativo \\n50%Combustible \\n70%Hidraulico\\n70%Almo\\nUbicación: GTI 2 TT7 \\nFalta reparar pomeles de plataforma de silo\"]","momento":"2026-10-29 19:41:09","fecha":"2026-10-29","turno":"A","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"GTI 2","estado":"Operativo","texto":"Boltec 381 operativo \n50%Combustible \n70%Hidraulico\n70%Almo\nUbicación: GTI 2 TT7 \nFalta reparar pomeles de plataforma de silo","adjuntos":["00000006-PHOTO-2026-10-29-19-41-09.jpg"]},{"id":"[\"2026-10-30 08:22:42\",\"Pablo Boltec\",\"Boltec 381 queda operativo en GTi2.\\nDetalles :Reparar pomeles plataforma silo.\\nEngrasar partes móviles.\\n50% combustible\\n70% hidráulico\\n70% al3\"]","momento":"2026-10-30 08:22:42","fecha":"2026-10-29","turno":"B","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\nDetalles :Reparar pomeles plataforma silo.\nEngrasar partes móviles.\n50% combustible\n70% hidráulico\n70% al3","adjuntos":["00000013-PHOTO-2026-10-30-08-22-42.jpg"]},{"id":"[\"2026-11-01 20:22:12\",\"Pato Inostroza\",\"Boltec 381 operativo \\n50%Combustible \\n70%Hidráulico \\n50%Almo\\nUbicación: GTI 2 TT7\"]","momento":"2026-11-01 20:22:12","fecha":"2026-11-01","turno":"A","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"GTI 2","estado":"Operativo","texto":"Boltec 381 operativo \n50%Combustible \n70%Hidráulico \n50%Almo\nUbicación: GTI 2 TT7","adjuntos":["00000031-PHOTO-2026-11-01-20-22-12.jpg"]},{"id":"[\"2026-11-02 08:19:58\",\"Pablo Boltec\",\"Boltec 381 queda operativo en GTi2.\\nSe rellena 40 litros combustible.\\n75% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-02 08:19:58","fecha":"2026-11-01","turno":"B","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\nSe rellena 40 litros combustible.\n75% combustible\n70% hidráulico\n60% almo","adjuntos":["00000039-PHOTO-2026-11-02-08-19-58.jpg"]},{"id":"[\"2026-11-02 20:34:57\",\"Pato Inostroza\",\"Boltec 381 operativo \\n70%Combustible \\n70%Hidráulico \\n50%Almo\\nUbicación: GTI 2 TT7\"]","momento":"2026-11-02 20:34:57","fecha":"2026-11-02","turno":"A","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"GTI 2","estado":"Operativo","texto":"Boltec 381 operativo \n70%Combustible \n70%Hidráulico \n50%Almo\nUbicación: GTI 2 TT7","adjuntos":["00000042-PHOTO-2026-11-02-20-34-57.jpg"]},{"id":"[\"2026-11-03 20:31:30\",\"Pato Inostroza\",\"Boltec 381 operativo \\n70%Combustible \\n70%Hidráulico \\n50%Almo\\nUbicación: GTI 2 TT7\"]","momento":"2026-11-03 20:31:30","fecha":"2026-11-03","turno":"A","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"GTI 2","estado":"Operativo","texto":"Boltec 381 operativo \n70%Combustible \n70%Hidráulico \n50%Almo\nUbicación: GTI 2 TT7","adjuntos":["00000050-PHOTO-2026-11-03-20-31-30.jpg"]},{"id":"[\"2026-11-04 20:26:47\",\"Pato Inostroza\",\"Boltec 381 operativo \\n70%Combustible \\n70%Hidráulico \\n50%Almo\\nUbicación: GTI 2 TT7\"]","momento":"2026-11-04 20:26:47","fecha":"2026-11-04","turno":"A","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"GTI 2","estado":"Operativo","texto":"Boltec 381 operativo \n70%Combustible \n70%Hidráulico \n50%Almo\nUbicación: GTI 2 TT7","adjuntos":["00000056-PHOTO-2026-11-04-20-26-47.jpg"]},{"id":"[\"2026-11-05 07:20:17\",\"Pablo Boltec\",\"Boltec 381 queda operativo en GTi2.\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-05 07:20:17","fecha":"2026-11-04","turno":"B","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000065-PHOTO-2026-11-05-07-20-17.jpg"]},{"id":"[\"2026-11-06 06:43:43\",\"Víctor Fredes\",\"Boltec 381 queda operativo en GTi2.\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-06 06:43:43","fecha":"2026-11-05","turno":"B","autor":"Víctor Fredes","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000068-PHOTO-2026-11-06-06-43-43.jpg"]},{"id":"[\"2026-11-07 06:41:15\",\"Víctor Fredes\",\"Boltec 381 queda operativo en GTi2.\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-07 06:41:15","fecha":"2026-11-06","turno":"B","autor":"Víctor Fredes","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000069-PHOTO-2026-11-07-06-41-15.jpg"]},{"id":"[\"2026-11-08 06:47:21\",\"Víctor Fredes\",\"Boltec 381 queda operativo en GTi2.\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-08 06:47:21","fecha":"2026-11-07","turno":"B","autor":"Víctor Fredes","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000070-PHOTO-2026-11-08-06-47-21.jpg"]},{"id":"[\"2026-11-09 06:49:05\",\"Víctor Fredes\",\"Boltec 381 queda operativo en GTi2.\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-09 06:49:05","fecha":"2026-11-08","turno":"B","autor":"Víctor Fredes","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000071-PHOTO-2026-11-09-06-49-05.jpg"]},{"id":"[\"2026-11-10 06:31:57\",\"Víctor Fredes\",\"Boltec 381 queda operativo en GTi2.\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-10 06:31:57","fecha":"2026-11-09","turno":"B","autor":"Víctor Fredes","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000072-PHOTO-2026-11-10-06-31-57.jpg"]},{"id":"[\"2026-11-11 06:37:19\",\"Víctor Fredes\",\"Boltec 381 queda operativo en GTi2.\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-11 06:37:19","fecha":"2026-11-10","turno":"B","autor":"Víctor Fredes","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000073-PHOTO-2026-11-11-06-37-19.jpg"]},{"id":"[\"2026-11-12 06:59:07\",\"Víctor Fredes\",\"Boltec 381 queda operativo en GTi2.\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-12 06:59:07","fecha":"2026-11-11","turno":"B","autor":"Víctor Fredes","equipo":"Boltec 381","sector":"GTi2","estado":"Operativo","texto":"Boltec 381 queda operativo en GTi2.\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000074-PHOTO-2026-11-12-06-59-07.jpg"]},{"id":"[\"2026-11-12 18:57:55\",\"Pablo Boltec\",\"Boltec 381 queda operativo en xc34/35\\nSe traslada equipo desde GTi2 a xc34/35\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-12 18:57:55","fecha":"2026-11-12","turno":"A","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"xc34/35","estado":"Operativo","texto":"Boltec 381 queda operativo en xc34/35\nSe traslada equipo desde GTi2 a xc34/35\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000076-PHOTO-2026-11-12-18-57-55.jpg"]},{"id":"[\"2026-11-13 09:00:09\",\"Pato Inostroza\",\"No se puedo ingresar a xc 34/35 equipo Boltec en las mismas condiciones de turno anterior\"]","momento":"2026-11-13 09:00:09","fecha":"2026-11-12","turno":"B","autor":"Pato Inostroza","equipo":"","sector":"xc 34/35","estado":"","texto":"No se puedo ingresar a xc 34/35 equipo Boltec en las mismas condiciones de turno anterior","adjuntos":[]},{"id":"[\"2026-11-13 19:05:52\",\"Pablo Boltec\",\"Boltec 381 queda operativo en xc34/35 tte 7.\\nA última hora se ingresó al área por unos minutos para chequear equipos.\\n70% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-13 19:05:52","fecha":"2026-11-13","turno":"A","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"xc34/35","estado":"Operativo","texto":"Boltec 381 queda operativo en xc34/35 tte 7.\nA última hora se ingresó al área por unos minutos para chequear equipos.\n70% combustible\n70% hidráulico\n60% almo","adjuntos":["00000080-PHOTO-2026-11-13-19-05-52.jpg"]},{"id":"[\"2026-11-14 07:50:41\",\"Pato Inostroza\",\"Boltec 381 operativo \\n70%Combustible \\n60%Almo\\n70%Hidráulico \\nUbicación: XC 34-35 TT7\"]","momento":"2026-11-14 07:50:41","fecha":"2026-11-13","turno":"B","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"XC 34-35","estado":"Operativo","texto":"Boltec 381 operativo \n70%Combustible \n60%Almo\n70%Hidráulico \nUbicación: XC 34-35 TT7","adjuntos":["00000085-PHOTO-2026-11-14-07-50-41.jpg"]},{"id":"[\"2026-11-14 19:00:33\",\"Pablo Boltec\",\"Boltec 381 en la misma condicion del turno anterior , no se ingresa xc34/35 en todo el turno para chequeo.\"]","momento":"2026-11-14 19:00:33","fecha":"2026-11-14","turno":"A","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"xc34/35","estado":"","texto":"Boltec 381 en la misma condicion del turno anterior , no se ingresa xc34/35 en todo el turno para chequeo.","adjuntos":[]},{"id":"[\"2026-11-15 07:48:46\",\"Pato Inostroza\",\"Boltec 381 operativo \\n70%Combustible \\n60%Almo\\n70%Hidráulico \\nUbicación: XC 34-35 TT7\"]","momento":"2026-11-15 07:48:46","fecha":"2026-11-14","turno":"B","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"XC 34-35","estado":"Operativo","texto":"Boltec 381 operativo \n70%Combustible \n60%Almo\n70%Hidráulico \nUbicación: XC 34-35 TT7","adjuntos":["00000090-PHOTO-2026-11-15-07-48-46.jpg"]},{"id":"[\"2026-11-15 19:12:30\",\"Pablo Boltec\",\"Boltec 381 queda xc34/35,.\\nno se va a postura en todo el turno... Mismas condiciones  y se toma horometro del turno anterior.\"]","momento":"2026-11-15 19:12:30","fecha":"2026-11-15","turno":"A","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"xc34/35","estado":"","texto":"Boltec 381 queda xc34/35,.\nno se va a postura en todo el turno... Mismas condiciones  y se toma horometro del turno anterior.","adjuntos":["00000094-PHOTO-2026-11-15-19-12-30.jpg"]},{"id":"[\"2026-11-16 19:19:47\",\"Pablo Boltec\",\"Boltec 381 queda xc34/35,.\\nNo se visita equipo en todo el turno, mismas condiciones   y se toma horometro del turno anterior.\"]","momento":"2026-11-16 19:19:47","fecha":"2026-11-16","turno":"A","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"xc34/35","estado":"","texto":"Boltec 381 queda xc34/35,.\nNo se visita equipo en todo el turno, mismas condiciones   y se toma horometro del turno anterior.","adjuntos":["00000095-PHOTO-2026-11-16-19-19-47.jpg"]},{"id":"[\"2026-11-17 08:10:51\",\"Pato Inostroza\",\"Boltec 381 operativo \\n70%Combustible \\n60%Almo\\n70%Hidráulico \\nUbicación: XC 34-35 TT7\"]","momento":"2026-11-17 08:10:51","fecha":"2026-11-16","turno":"B","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"XC 34-35","estado":"Operativo","texto":"Boltec 381 operativo \n70%Combustible \n60%Almo\n70%Hidráulico \nUbicación: XC 34-35 TT7","adjuntos":["00000097-PHOTO-2026-11-17-08-10-51.jpg"]},{"id":"[\"2026-11-17 20:19:16\",\"Pablo Boltec\",\"Boltec 381 queda operativo en xc34/35 tte 7.\\nSin postura\\n60% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-17 20:19:16","fecha":"2026-11-17","turno":"A","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"xc34/35","estado":"Operativo","texto":"Boltec 381 queda operativo en xc34/35 tte 7.\nSin postura\n60% combustible\n70% hidráulico\n60% almo","adjuntos":["00000106-PHOTO-2026-11-17-20-19-16.jpg"]},{"id":"[\"2026-11-18 07:44:12\",\"Pato Inostroza\",\"Boltec 381 operativo \\n70%Combustible \\n60%Almo\\n70%Hidráulico \\nUbicación: XC 34-35 TT7\"]","momento":"2026-11-18 07:44:12","fecha":"2026-11-17","turno":"B","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"XC 34-35","estado":"Operativo","texto":"Boltec 381 operativo \n70%Combustible \n60%Almo\n70%Hidráulico \nUbicación: XC 34-35 TT7","adjuntos":["00000109-PHOTO-2026-11-18-07-44-12.jpg"]},{"id":"[\"2026-11-18 19:28:44\",\"Pablo Boltec\",\"Boltec 381 queda operativo en xc34/35\\nSin postura \\nSolo se va a chequear un par de minutos.\\n60% combustible\\n70% hidráulico\\n60% almo\"]","momento":"2026-11-18 19:28:44","fecha":"2026-11-18","turno":"A","autor":"Pablo Boltec","equipo":"Boltec 381","sector":"xc34/35","estado":"Operativo","texto":"Boltec 381 queda operativo en xc34/35\nSin postura \nSolo se va a chequear un par de minutos.\n60% combustible\n70% hidráulico\n60% almo","adjuntos":["00000113-PHOTO-2026-11-18-19-28-44.jpg"]},{"id":"[\"2026-11-19 07:42:02\",\"Pato Inostroza\",\"Boltec 381 operativo \\n50%Combustible \\n60%Almo\\n70%Hidráulico \\nUbicación: XC 34-35 TT7\"]","momento":"2026-11-19 07:42:02","fecha":"2026-11-18","turno":"B","autor":"Pato Inostroza","equipo":"Boltec 381","sector":"XC 34-35","estado":"Operativo","texto":"Boltec 381 operativo \n50%Combustible \n60%Almo\n70%Hidráulico \nUbicación: XC 34-35 TT7","adjuntos":["00000118-PHOTO-2026-11-19-07-42-02.jpg"]},{"id":"[\"2026-11-21 09:09:08\",\"Monsalve Boltec S\",\"Equipo boltec 381 sin postura todo el turno\"]","momento":"2026-11-21 09:09:08","fecha":"2026-11-20","turno":"B","autor":"Monsalve Boltec S","equipo":"Boltec 381","sector":"","estado":"","texto":"Equipo boltec 381 sin postura todo el turno","adjuntos":["00000128-PHOTO-2026-11-21-09-09-08.jpg"]},{"id":"[\"2026-11-21 18:44:03\",\"Víctor Fredes\",\"Boltec 381 operativo \\n50%Combustible \\n60%Almo\\n70%Hidráulico \\nUbicación: XC 34-35 TT7\"]","momento":"2026-11-21 18:44:03","fecha":"2026-11-21","turno":"A","autor":"Víctor Fredes","equipo":"Boltec 381","sector":"XC 34-35","estado":"Operativo","texto":"Boltec 381 operativo \n50%Combustible \n60%Almo\n70%Hidráulico \nUbicación: XC 34-35 TT7","adjuntos":["00000140-PHOTO-2026-11-21-18-44-03.jpg"]},{"id":"[\"2026-11-22 19:34:35\",\"Víctor Fredes\",\"No se chequea Boltec \\nFui a prestar apoyo sub 5\"]","momento":"2026-11-22 19:34:35","fecha":"2026-11-22","turno":"A","autor":"Víctor Fredes","equipo":"","sector":"","estado":"","texto":"No se chequea Boltec \nFui a prestar apoyo sub 5","adjuntos":["00000144-PHOTO-2026-11-22-19-34-35.jpg"]}];
+async function leerZipWhatsApp(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const v = new DataView(bytes.buffer);
+  let fin = bytes.length-22;
+  while (fin>=Math.max(0,bytes.length-65557) && v.getUint32(fin,true)!==0x06054b50) fin--;
+  if (fin<Math.max(0,bytes.length-65557)) throw Error('El ZIP no se pudo leer.');
+  const total = v.getUint16(fin+10,true);
+  let p = v.getUint32(fin+16,true);
+  for (let n=0;n<total;n++) {
+    if (p+46>bytes.length || v.getUint32(p,true)!==0x02014b50) break;
+    const largo = v.getUint16(p+28,true), nombre = new TextDecoder().decode(bytes.subarray(p+46,p+46+largo));
+    if (/\.txt$/i.test(nombre) && !nombre.includes('__MACOSX')) {
+      const offset = v.getUint32(p+42,true), tamano = v.getUint32(p+20,true);
+      if (v.getUint32(p+24,true)>25e6 || offset+30>bytes.length || v.getUint32(offset,true)!==0x04034b50) throw Error('El TXT del ZIP supera el límite o está dañado.');
+      const inicio=offset+30+v.getUint16(offset+26,true)+v.getUint16(offset+28,true);
+      if (inicio+tamano>bytes.length) throw Error('El ZIP está incompleto.');
+      const metodo=v.getUint16(p+10,true), contenido=bytes.subarray(inicio,inicio+tamano);
+      if (metodo===0) return new TextDecoder().decode(contenido);
+      if (metodo===8) return new Response(new Blob([contenido]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+      throw Error('Este ZIP usa una compresión no admitida. Extrae y carga el TXT.');
+    }
+    p+=46+largo+v.getUint16(p+30,true)+v.getUint16(p+32,true);
+  }
+  throw Error('El ZIP no contiene la conversación en TXT.');
+}
+
+const WA_KEY = STORAGE_KEY + ':boltec-whatsapp-v1';
+const waElement = id => document.getElementById(id);
+let pendientesWA = [];
+let origenWA = null;
+
+function leerPartesBoltec(texto, orden='mdy') {
+  const mensajes=[];
+  const cab=/^\[?(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4}),?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?\s*(?:\]\s*|\s+-\s+)([^:\n]+):\s*(.*)$/i;
+  for(const linea of texto.replace(/[\u200e\u200f\ufeff]/g,'').split(/\r?\n/)){
+    const m=linea.match(cab);
+    if(m) mensajes.push({m,texto:m[9]});
+    else if(mensajes.length) mensajes.at(-1).texto+='\n'+linea;
+  }
+  if(!mensajes.length) throw Error('No se reconoció la exportación de WhatsApp.');
+  return mensajes.flatMap(({m,texto})=>{
+    const adjuntos=[...texto.matchAll(/<adjunto:\s*([^>]+)>/gi)].map(x=>x[1]);
+    texto=texto.replace(/<adjunto:[^>]+>/gi,'').trim();
+    const maquina=texto.match(/\bboltec\s*[-#]?\s*(\d{2,5})\b/i);
+    if(/^\s*¿|\?$/.test(texto) || (!maquina && !/\b(?:no se chequea boltec|equipo boltec en las mismas condiciones)\b/i.test(texto))) return [];
+    const [,a,b,yy,hh,min,seg,ampm,autor]=m;
+    const mes=+(orden==='mdy'?a:b), dia=+(orden==='mdy'?b:a), anio=yy.length===2?2000+Number(yy):+yy;
+    const fecha=new Date(Date.UTC(anio,mes-1,dia));
+    const hora=ampm ? (+hh%12)+(ampm.toLowerCase().startsWith('p')?12:0) : +hh;
+    if(fecha.getUTCMonth()+1!==mes||fecha.getUTCDate()!==dia||hora>23||+min>59)return [];
+    const fechaMensaje=fecha.toISOString().slice(0,10);
+    const noche=hora<12;
+    if(noche) fecha.setUTCDate(fecha.getUTCDate()-1);
+    const equipo=maquina?'Boltec '+maquina[1]:'';
+    const sector=texto.match(/\b(?:xc\s*\d+\s*[/-]\s*\d+|gti\s*[- ]?\s*\d+)/gi)?.at(-1)||'';
+    const estado=/\b(?:no operativo|fuera de servicio|f\s*\/\s*s)\b/i.test(texto)?'Detenido':/\boperativ[oa]\b/i.test(texto)?'Operativo':'';
+    const momento=fechaMensaje+' '+String(hora).padStart(2,'0')+':'+min+':'+(seg||'00');
+    return [{id:JSON.stringify([momento,autor.trim(),texto]),momento,fecha:fecha.toISOString().slice(0,10),turno:noche?'B':'A',autor:autor.trim(),equipo,sector,estado,texto,adjuntos}];
+  });
+}
+
+function renderWhatsAppBoltec(){
+  const cuerpo=waElement('waFilas');
+  cuerpo.replaceChildren();
+  const avisos = new Map([...HISTORIAL_WA_BOLTEC,...pendientesWA].map(d=>[d.id,d]));
+  [...avisos.values()].sort((a,b)=>b.momento.localeCompare(a.momento)).forEach(d=>{
+    const fila=cuerpo.insertRow();
+    for(const texto of [d.momento,d.fecha+' · '+d.turno,d.equipo||'Por confirmar',d.autor,d.sector,d.estado||'Por confirmar',d.texto,d.adjuntos.join(', ')]) fila.insertCell().textContent=texto;
+    const btn=document.createElement('button');
+    btn.textContent='Preparar registro';
+    btn.onclick=()=>prepararParteBoltec(d);
+    fila.insertCell().append(btn);
+  });
+  waElement('waCantidad').textContent=avisos.size+' reportes operacionales';
+}
+function prepararParteBoltec(d){
+  if ((editingId || ['f_obs','f_he','f_tiros'].some(k=>waElement(k).value && +waElement(k).value!==0)) && !confirm('¿Reemplazar la captura abierta con este reporte?')) return;
+  resetForm();
+  origenWA=d;
+  const campos={fecha:d.fecha,turno:d.turno,tipo:'Boltec',equipo:d.equipo,operador:'',sector:d.sector,estado:d.estado,obs:d.texto+'\nWhatsApp · '+d.autor+' · '+d.momento,hp:'',he:'',tiros:''};
+  for(const [k,v] of Object.entries(campos))waElement('f_'+k).value=v;
+  updateDisponibilidadAuto();
+  updateMetrosAcumuladosAuto();
+  waElement('waEstado').textContent='Captura preparada. Confirma operador, turno, condición, horas y tiros con el parte.';
+  waElement('f_fecha').focus();
+}
+waElement('waArchivo').addEventListener('change',async e=>{
+  const f=e.target.files[0];
+  if(!f)return;
+  try{
+    const texto=/\.zip$/i.test(f.name)?await leerZipWhatsApp(f):await f.text();
+    const partes=leerPartesBoltec(texto,waElement('waOrden').value);
+    const unicos=new Map([...pendientesWA,...partes].map(d=>[d.id,d]));
+    localStorage.setItem(WA_KEY,JSON.stringify([...unicos.values()]));
+    pendientesWA=[...unicos.values()];
+    renderWhatsAppBoltec();
+    waElement('waEstado').textContent=partes.length+' reportes encontrados en el archivo.';
+  }catch(err){waElement('waEstado').textContent=err.message;}
+  finally{e.target.value='';}
+});
+try{pendientesWA=JSON.parse(localStorage.getItem(WA_KEY)||'[]');if(!Array.isArray(pendientesWA))pendientesWA=[];}catch{pendientesWA=[];}
+renderWhatsAppBoltec();
+
+function cargarTurnosBoltec() {
+  const marca = STORAGE_KEY + ':boltec-oct-nov-2026-v1';
+  if (localStorage.getItem(marca)) return 0;
+  const equipoNumero = x => String(x ?? '').match(/(?:^|\b)(\d{2,5})\b/)?.[1];
+  const turnoCanonico = x => ({dia:'A',noche:'B'})[String(x).trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()] || String(x).trim().toUpperCase();
+  const clave = (fecha, turno, numero) => [fecha, turnoCanonico(turno), numero].join('|');
+  const existentes = new Set(records.filter(r=>r.tipo==='Boltec'||/boltec/i.test(r.equipo||'')).map(r=>clave(r.fecha,r.turno,equipoNumero(r.equipo))));
+  const grupos = new Map();
+  for (const d of HISTORIAL_WA_BOLTEC) {
+    const numero = equipoNumero(d.equipo);
+    if (!numero) continue;
+    const k = clave(d.fecha,d.turno,numero);
+    if (existentes.has(k)) continue;
+    if (!grupos.has(k)) grupos.set(k,[]);
+    grupos.get(k).push(d);
+  }
+  const ids = new Set(records.map(d=>d.id));
+  const nuevos = [...grupos.values()].map(lista=>{
+    lista.sort((a,b)=>a.momento.localeCompare(b.momento));
+    const cierre = lista.at(-1);
+    let id=-Number(cierre.fecha.replaceAll('-','')+ (cierre.turno==='A'?'1':'2') + equipoNumero(cierre.equipo).padStart(5,'0'));
+    while(ids.has(id)) id--;
+    ids.add(id);
+    return {id,fecha:cierre.fecha,turno:cierre.turno,tipo:'Boltec',equipo:cierre.equipo,
+      operador:'',supervisor:'',grupo:'Sin informar',tipo_trabajo:'Sin informar',
+      sector:lista.filter(d=>d.sector).at(-1)?.sector||'',estado:cierre.estado,
+      hp:null,he:null,agua:null,energia:null,mant:null,otras:null,tiros:null,largo_perno:null,metros_total:null,avance:null,malla:null,
+      observacion:lista.map(d=>'WhatsApp · '+d.momento+' · '+d.autor+'\n'+d.texto+(d.adjuntos.length?'\nAdjuntos: '+d.adjuntos.join(', '):'')).join('\n\n'),
+      desdeWhatsApp:true};
+  });
+  if(nuevos.length){records=[...nuevos,...records].sort((a,b)=>b.fecha.localeCompare(a.fecha)||String(b.turno).localeCompare(String(a.turno)));persist();}
+  localStorage.setItem(marca,'1');
+  return nuevos.length;
+}
+
 loadStorage();
-if(!records.length) loadDemo(); else renderAll();
+cargarTurnosBoltec();
+renderAll();
 </script>
 </body>
 </html>
